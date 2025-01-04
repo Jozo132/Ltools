@@ -1,0 +1,1 @@
+#### Note: the fonts used are OFL licensed (Open Font License)

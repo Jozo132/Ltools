@@ -1,0 +1,5 @@
+**/**.exe
+**/**.png
+**/**.svg
+**/**.o
+**/precompiled_fonts.h
