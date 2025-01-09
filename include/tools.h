@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <fstream>
+#include <iostream>
 #include <math.h>
 #include <vector>
 #include <chrono>
@@ -20,12 +22,31 @@
 #endif
 
 struct Color {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t a;
 	bool isBlank() {
 		return a == 0;
+	}
+	uint8_t getHue() {
+		return (r + g + b) / 3;
+	}
+	void invert(int inversion) {
+		int fully_inverted_r = 255 - r;
+		int diff_r = fully_inverted_r - r;
+		int change_r = diff_r * inversion / 255;
+		r += change_r;
+
+		int fully_inverted_g = 255 - g;
+		int diff_g = fully_inverted_g - g;
+		int change_g = diff_g * inversion / 255;
+		g += change_g;
+
+		int fully_inverted_b = 255 - b;
+		int diff_b = fully_inverted_b - b;
+		int change_b = diff_b * inversion / 255;
+		b += change_b;
 	}
 };
 
@@ -36,11 +57,11 @@ const Color BLANK = { 0, 0, 0, 0 };
 
 
 int invert_color(int color, int inversion) {
-    // Flip the color about the midpoint by the inversion value (0 = no inversion, 255 = full inversion)
-    int fully_inverted = 255 - color;
-    int diff = fully_inverted - color;
-    int change = diff * inversion / 255;
-    return color + change;
+	// Flip the color about the midpoint by the inversion value (0 = no inversion, 255 = full inversion)
+	int fully_inverted = 255 - color;
+	int diff = fully_inverted - color;
+	int change = diff * inversion / 255;
+	return color + change;
 }
 
 struct Vector2 {
@@ -90,7 +111,7 @@ typedef struct {
 } table_directory;
 
 
-typedef struct  {
+typedef struct {
 	offset_subtable off_sub;
 	table_directory* tbl_dir;
 } font_directory;
@@ -107,9 +128,9 @@ void read_offset_subtable(char** mem, offset_subtable* off_sub) {
 
 void read_table_directory(char** mem, table_directory** tbl_dir, int tbl_size) {
 	char* m = *mem;
-	*tbl_dir = (table_directory*)calloc(1, sizeof(table_directory)*tbl_size);
+	*tbl_dir = (table_directory*) calloc(1, sizeof(table_directory) * tbl_size);
 
-	for(int i = 0; i < tbl_size; ++i) {
+	for (int i = 0; i < tbl_size; ++i) {
 		table_directory* t = *tbl_dir + i;
 		t->tag = READ_BE32_MOVE(m);
 		t->checkSum = READ_BE32_MOVE(m);
@@ -121,18 +142,18 @@ void read_table_directory(char** mem, table_directory** tbl_dir, int tbl_size) {
 }
 
 void read_font_directory(char** mem, font_directory* ft) {
-	read_offset_subtable(mem, &ft->off_sub); 
-	read_table_directory(mem, &ft->tbl_dir, ft->off_sub.numTables); 
+	read_offset_subtable(mem, &ft->off_sub);
+	read_table_directory(mem, &ft->tbl_dir, ft->off_sub.numTables);
 }
 
 void print_table_directory(table_directory* tbl_dir, int tbl_size) {
 	printf("#)\ttag\tlen\toffset\n");
-	for(int i = 0; i < tbl_size; ++i) {
+	for (int i = 0; i < tbl_size; ++i) {
 		table_directory* t = tbl_dir + i;
-		printf("%d)\t%c%c%c%c\t%d\t%d\n", i+1,
-				t->tag_c[3], t->tag_c[2],
-				t->tag_c[1], t->tag_c[0],
-				t->length, t->offset);
+		printf("%d)\t%c%c%c%c\t%d\t%d\n", i + 1,
+			t->tag_c[3], t->tag_c[2],
+			t->tag_c[1], t->tag_c[0],
+			t->length, t->offset);
 	}
 }
 
@@ -150,36 +171,41 @@ typedef struct {
 
 
 char* loadFile(const char* fileName) {
-    char* text = NULL;
-    FILE* file = fopen(fileName, "rt");
-    if (file != NULL) {
-        fseek(file, 0, SEEK_END);
-        int size = ftell(file);
-        rewind(file);
-        if (size > 0) {
-            text = (char*) malloc(sizeof(char) * (size + 1));
-            int count = fread(text, sizeof(char), size, file);
-            text[count] = '\0';
-        }
-        fclose(file);
-    }
-    return text;
+	char* text = NULL;
+	FILE* file = fopen(fileName, "rt");
+	if (file != NULL) {
+		fseek(file, 0, SEEK_END);
+		int size = ftell(file);
+		rewind(file);
+		if (size > 0) {
+			text = (char*) malloc(sizeof(char) * (size + 1));
+			int count = fread(text, sizeof(char), size, file);
+			text[count] = '\0';
+		}
+		fclose(file);
+	}
+	return text;
 }
 
 
 int saveFile(const char* fileName, const char* data, int size) {
-    if (size <= 0) return -1;
-    FILE* file = fopen(fileName, "wt");
-    if (file != NULL) {
-        fwrite(data, sizeof(char), size, file);
-        fclose(file);
-        return 0;
-    }
-    return -1;
+	if (size <= 0) {
+		printf("Error: No data to save\n");
+		return -1;
+	}
+	std::ofstream file(fileName, std::ios::binary);
+	if (!file.is_open()) {
+		printf("Error: Could not open file %s\n", fileName);
+		return -1;
+	}
+	file.write(data, size);
+	file.flush(); // Ensure data is written to disk
+	file.close();
+	return 0;
 }
 
 double GetTime() {
 	const auto now = std::chrono::system_clock::now();
 	const auto duration = now.time_since_epoch();
-	return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() / 1000.0;
+	return std::chrono::duration_cast<std::chrono::microseconds>(duration).count() * 0.000001;
 }

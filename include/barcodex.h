@@ -16,6 +16,7 @@ struct RenderStateTemp {
     float y = 0;
     float scale_x = 0;
     float scale_y = 0;
+    bool inverted = false;
 } rst;
 
 // #define DEBUG_DRAWING
@@ -41,7 +42,7 @@ void barcode_drawLine(double x, double y, double w, double h) {
 #ifdef DEBUG_DRAWING
     printf("Drawing line at %f, %f with size %f, %f\n", ix, iy, iw, ih);
 #endif
-    rst.image->drawRect(ix, iy, iw, ih, 0, BLANK, BLACK);
+    rst.image->drawRect(ix, iy, iw, ih, 0, BLANK, BLACK, rst.inverted);
 }
 
 void barcode_drawBox(double x, double y, double w, double h) {
@@ -52,7 +53,7 @@ void barcode_drawBox(double x, double y, double w, double h) {
 #ifdef DEBUG_DRAWING
     printf("Drawing box at %f, %f with size %f, %f\n", ix, iy, iw, ih);
 #endif
-    rst.image->drawRect(ix, iy, iw, ih, 0, BLANK, BLACK);
+    rst.image->drawRect(ix, iy, iw, ih, 0, BLANK, BLACK, rst.inverted);
 }
 
 void barcode_drawText(double x, double y, double size, const char* text) {
@@ -76,7 +77,7 @@ void barcode_drawRing(double x, double y, double r, double w) {
     printf("Drawing ring at %f, %f with radius %f and width %f\n", ix, iy, ir, w);
 #endif
     // ImageDrawCircle(rst.image, ix, iy, ir, BLACK);
-    rst.image->drawCircle(ix, iy, ir, 0, BLANK, BLACK);
+    rst.image->drawCircle(ix, iy, ir, 0, BLANK, BLACK, rst.inverted);
 }
 
 void barcode_drawHexagon(double x, double y, double h) {
@@ -86,10 +87,10 @@ void barcode_drawHexagon(double x, double y, double h) {
 #ifdef DEBUG_DRAWING
     printf("Drawing hexagon at %f, %f with height %f\n", ix, iy, ih);
 #endif
-    ImageDrawNGon(rst.image, (Vector2) { ix, iy }, ih, 6, BLACK);
+    ImageDrawNGon(rst.image, (Vector2) { ix, iy }, ih, 6, BLACK, rst.inverted);
 }
 
-void barcode_render_setup(RendererCustom* renderer, Image* image, float x, float y, float scale_x, float scale_y) {
+void barcode_render_setup(RendererCustom* renderer, Image* image, float x, float y, float scale_x, float scale_y, bool inverted) {
     if (!renderer) return;
     if (!image) return;
     rst.image = image;
@@ -97,6 +98,7 @@ void barcode_render_setup(RendererCustom* renderer, Image* image, float x, float
     rst.y = y;
     rst.scale_x = scale_x;
     rst.scale_y = scale_y;
+    rst.inverted = inverted;
     renderer->setDrawBeginFunction(&barcode_drawBegin);
     renderer->setDrawEndFunction(&barcode_drawEnd);
     renderer->setDrawLineFunction(&barcode_drawLine);
@@ -107,7 +109,7 @@ void barcode_render_setup(RendererCustom* renderer, Image* image, float x, float
 }
 
 
-void ImageDrawBarcode_Code39(Image* image, const char* text, int x, int y, int height, int scale, bool show_text, bool checksum) {
+void ImageDrawBarcode_Code39(Image* image, const char* text, int x, int y, int height, int scale, bool show_text, bool checksum, bool inverted) {
 #ifdef DEBUG_DRAWING
     printf("Drawing barcode Code39 at %d, %d with message %s\n", x, y, text);
     printf("  Height: %d, Scale: %d, Show Text: %d, Checksum: %d\n", height, scale, show_text, checksum);
@@ -134,14 +136,14 @@ void ImageDrawBarcode_Code39(Image* image, const char* text, int x, int y, int h
 
     // Create renderer
     RendererCustom renderer;
-    barcode_render_setup(&renderer, image, x, y, scale_x, scale_y);
+    barcode_render_setup(&renderer, image, x, y, scale_x, scale_y, inverted);
     // Render barcode
     bc->render(renderer);
     // Cleanup
     delete bc;
 }
 
-void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int height, int scale, bool show_text) {
+void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int height, int scale, bool show_text, bool inverted) {
 #ifdef DEBUG_DRAWING
     printf("Drawing barcode Code128 at %d, %d with message %s\n", x, y, text);
     printf("  Height: %d, Scale: %d, Show Text: %d\n", height, scale, show_text);
@@ -168,7 +170,7 @@ void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int 
 
     // Create renderer
     RendererCustom renderer;
-    barcode_render_setup(&renderer, image, x, y, scale_x, scale_y);
+    barcode_render_setup(&renderer, image, x, y, scale_x, scale_y, inverted);
     // Render barcode
     bc->render(renderer);
     // Cleanup

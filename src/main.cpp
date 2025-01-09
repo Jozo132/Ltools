@@ -35,7 +35,7 @@ int main() {
 
     timer.start();
     ZPL_label label = parse_zpl(zpl_sample, zpl_sample_len);
-    label.print();
+    // label.print();
     timer.log("Parsed");
 
     if (label.error) {
@@ -58,19 +58,21 @@ int main() {
     timer.log("Drawn");
 
     timer.start();
-    // auto* png = image.toPNG();
-
-    std::vector<unsigned char> png;
-    int error = lodepng::encode(png, image.data, image.width, image.height);
-    if (error) {
-        printf("Error encoding PNG: %s\n", lodepng_error_text(error));
+    // std::vector<unsigned char>* png = image.toPNG(PE_LODEPNG);
+    std::vector<unsigned char>* png = image.toPNG(PE_FPNG);
+    if (!png) {
+        printf("Error encoding PNG\n");
         return 1;
     }
+    if (png->size() == 0) {
+        printf("Error encoding PNG: Output file is empty\n");
+        return 1;
+    }
+    printf("PNG size: %d\n", png->size());
     timer.log("Encoded to PNG");
 
     timer.start();
-    // saveFile("output.png", (const char*) png->data(), png->size());
-    lodepng::save_file(png, "output.png");
+    saveFile("output.png", (const char*) png->data(), png->size());
     timer.log("Saved");
 
     return 0;
