@@ -176,23 +176,55 @@ struct ZPL_element {
             } break;
 
             case FD: {
-                // float ix = x;
-                // float iy = y;
-                // Font* font_ptr = nullptr;
-                // switch (font_type) {
-                //     case 0: font_ptr = fontx.getFont("Helvetica", font_size); break;
-                //     case 1: font_ptr = fontx.getFont("OCR-A", font_size); break;
-                //     case 2: font_ptr = fontx.getFont("OCR-B", font_size); break;
-                //     case 3: font_ptr = fontx.getFont("Roboto-Regular", font_size); break;
-                //     default: break;
-                // }
-                // // Font* font_ptr = fontx.getFont("OCR-A", font_size);
-                // // Font* font_ptr = fontx.getFont("Roboto-Regular", font_size);
-                // // Font* font_ptr = fontx.getFont("Helvetica", font_size);
+                float ix = x;
+                float iy = y;
+                bool font_found = true;
+                switch (font_type) {
+                    case 0: FontLib.setFont("Helvetica", font_size); break;
+                    case 1: FontLib.setFont("OCR-A", font_size); break;
+                    case 2: FontLib.setFont("OCR-B", font_size); break;
+                    case 3: FontLib.setFont("Roboto-Regular", font_size); break;
+                    default: {
+                        printf("Unknown font type %d\n", font_type);
+                        font_found = false;
+                        break;
+                    }
+                }
+                if (!font_found) return;
+                // Font* font_ptr = fontx.getFont("OCR-A", font_size);
+                // Font* font_ptr = fontx.getFont("Roboto-Regular", font_size);
+                // Font* font_ptr = fontx.getFont("Helvetica", font_size);
                 // if (font_ptr == nullptr) return; // Font not found
                 // Font& font = font_ptr[0];
-                // // DrawTextEx(font, text, (Vector2) { ix, iy }, font_size, 0, BLACK);
+                // DrawTextEx(font, text, (Vector2) { ix, iy }, font_size, 0, BLACK);
                 // ImageDrawTextEx(image, font, text, (Vector2) { ix, iy }, font_size, 0, BLACK);
+                int offset = font_size * 2 / 3;
+                int x_pos = ix;
+                for (int i = 0; i < len; i++) {
+                    char c = text[i];
+                    FT_GlyphSlot* glyph = FontLib.getChar(c);
+                    if (glyph) {
+                        FT_GlyphSlot& g = glyph[0];
+                        FT_Bitmap& bitmap = g->bitmap;
+                        int width = bitmap.width;
+                        int height = bitmap.rows;
+                        int offsetX = x_pos + g->bitmap_left;
+                        int offsetY = offset - g->bitmap_top;
+                        for (int iy = 0; iy < height; iy++) {
+                            for (int ix = 0; ix < width; ix++) {
+                                uint8_t greyscale = bitmap.buffer[((int) iy) * width + ((int) ix)]; // Single 8 bit value
+                                if (greyscale > 0) {
+                                    greyscale = inverted ? greyscale : (255 - greyscale);
+                                    Color color = { greyscale , greyscale, greyscale,  0xFF };
+                                    image->drawPixel(offsetX + ix, y + iy + offsetY, color, inverted);
+                                }
+                            }
+                        }
+                        x_pos += g->advance.x >> 6;
+                    } else {
+                        printf("Glyph '%c' not found for font '%s'\n", c, "Helvetica");
+                    }
+                }
             } break;
 
             case GF: {

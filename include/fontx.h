@@ -1,10 +1,9 @@
-#pragma once
-
-#include "tools.h"
-
-
-#define MAX_NUM_OF_FONTS 32
-#define MAX_FONT_NAME_LENGTH 16
+#include <map>
+#include <string>
+#include <vector>
+#include <stdexcept>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 
 struct ttf_font_t {
@@ -19,90 +18,132 @@ const struct ttf_font_t ttf_fonts [] = {
 
 const int ttf_fonts_count = sizeof(ttf_fonts) / sizeof(ttf_fonts[0]);
 
-ttf_font_t* find_font(const char* name) {
-    if (name == nullptr) return nullptr;
-    for (int i = 0; i < ttf_fonts_count; i++) {
-        auto& font = ttf_fonts[i];
-        int input_len = 0;
-        while (name[input_len] != 0) input_len++;
-        int name_len = 0;
-        while (font.name[name_len] != 0) name_len++;
-        if (input_len != name_len) continue;
-        bool match = true;
-        for (int j = 0; j < input_len; j++) {
-            if (name[j] != font.name[j]) {
-                match = false;
-                break;
-            }
+
+class FontLib_t {
+private:
+    struct Font {
+        std::string name;
+        std::vector<unsigned char> data;
+        FT_Face face;
+    };
+
+    FT_Library ftLibrary;
+    std::map<std::string, Font> fontTable;
+    static constexpr size_t maxFonts = 100;
+
+    Font* selectedFont = nullptr;
+    int fontSize = 12;
+
+public:
+    FontLib_t() {
+        if (FT_Init_FreeType(&ftLibrary)) {
+            throw std::runtime_error("Failed to initialize FreeType library");
         }
-        if (match) return (ttf_font_t*) &font;
     }
-    return nullptr;
-}
 
-
-bool string_match(const char* a, const char* b) {
-    while (*a && *b) {
-        if (*a != *b) return false;
-        a++;
-        b++;
+    ~FontLib_t() {
+        for (auto& font : fontTable) {
+            FT_Done_Face(font.second.face);
+        }
+        FT_Done_FreeType(ftLibrary);
     }
-    return *a == *b;
-}
 
-void string_copy(char* dest, const char* src, int len) {
-    while (*src && len > 0) {
-        *dest = *src;
-        dest++;
-        src++;
-        len--;
+    int loadFont(const char* name, const char* data, size_t length) {
+        if (fontTable.size() >= maxFonts) {
+            printf("Maximum number of fonts loaded\n");
+            return -1; // Maximum number of fonts loaded
+        }
+
+        if (fontTable.find(name) != fontTable.end()) {
+            printf("Font already loaded\n");
+            return -2; // Font already loaded
+        }
+
+        Font font;
+        font.name = name;
+        font.data.assign(data, data + length);
+
+        if (FT_New_Memory_Face(ftLibrary, font.data.data(), length, 0, &font.face)) {
+            printf("Failed to load font\n");
+            return -3; // Failed to load font
+        }
+
+        fontTable[name] = std::move(font);
+        if (selectedFont == nullptr) {
+            selectedFont = &fontTable[name];
+        }
+        return 0; // Success
     }
-    *dest = '\0';
-}
 
-// struct FontX_t {
-//     struct MyFont {
-//         Font font;
-//         char name[MAX_FONT_NAME_LENGTH];
-//         int size;
-//     };
+    int setFont(const char* name, int font_size = 0) {
+        if (font_size > 0) fontSize = font_size;
+        auto it = fontTable.find(name);
+        if (it == fontTable.end()) {
+            // Search for the font in the precompiled fonts
+            for (int i = 0; i < ttf_fonts_count; i++) {
+                if (strcmp(name, ttf_fonts[i].name) == 0) {
+                    int error = loadFont(name, (const char*) ttf_fonts[i].data, ttf_fonts[i].length);
+                    if (error) {
+                        printf("Failed to load font\n");
+                        return -1; // Failed to load font
+                    }
+                    it = fontTable.find(name);
+                    break;
+                }
+            }
+            return -1; // Font not found
+        }
+        selectedFont = &it->second;
+        return 0; // Success
+    }
 
-//     int count;
-//     MyFont* fonts = nullptr;
-//     Font* loadFont(const char* name, int size) {
-//         //// Load font from file into ImageFont
-//         // char temp[64];
-//         // sprintf(temp, "resources/%s.ttf", name);
-//         // Font font = LoadFontEx(temp, size, 0, 250);
-        
-//         // Load font from memory
-//         ttf_font_t* font = find_font(name);
-//         if (font == nullptr) {
-//             printf("Font not found: %s\n", name);
-//             // return nullptr;
-//             if (ttf_fonts_count == 0) return nullptr;
-//             font = (ttf_font_t*) &ttf_fonts[0];
-//         }
-//         Font f = LoadFontFromMemory(".ttf", (unsigned char*) font->data, font->length, size, 0, 250);
-//         return new Font(f);
-//     }
-//     Font* getFont(const char* name, int size) {
-//         if (fonts == nullptr) {
-//             fonts = new MyFont[MAX_NUM_OF_FONTS];
-//             count = 0;
-//         }
-//         for (int i = 0; i < count; i++) {
-//             if (string_match(name, fonts[i].name) && fonts[i].size == size) {
-//                 return &fonts[i].font;
-//             }
-//         }
-//         if (count >= MAX_NUM_OF_FONTS) return nullptr;
-//         Font* f = loadFont(name, size);
-//         if (f == nullptr) return nullptr;
-//         fonts[count].font = *f;
-//         string_copy(fonts[count].name, name, MAX_FONT_NAME_LENGTH);
-//         fonts[count].size = size;
-//         count++;
-//         return &fonts[count - 1].font;
-//     }
-// } fontx;
+    FT_GlyphSlot* getChar(char c, const char* name = nullptr, int font_size = 0) {
+        if (name != nullptr) {
+            setFont(name, font_size);
+        }
+
+        if (selectedFont == nullptr) {
+            printf("No font selected\n");
+            return nullptr;
+        }
+
+        if (FT_Set_Pixel_Sizes(selectedFont->face, 0, fontSize)) {
+            printf("Failed to set font size %d\n", fontSize);
+            return nullptr;
+        }
+
+        if (FT_Load_Char(selectedFont->face, c, FT_LOAD_RENDER)) {
+            printf("Failed to load character %c\n", c);
+            return nullptr;
+        }
+
+        return &selectedFont->face->glyph;
+    }
+
+    int getWidth(const char* name, const char* text, int length) {
+        auto it = fontTable.find(name);
+        if (it == fontTable.end()) {
+            return -1; // Font not found
+        }
+
+        Font& font = it->second;
+
+        if (FT_Set_Pixel_Sizes(font.face, 0, 64)) {
+            return -2; // Failed to set font size
+        }
+
+        int width = 0;
+        for (int i = 0; i < length; ++i) {
+            if (FT_Load_Char(font.face, text[i], FT_LOAD_RENDER)) {
+                return -3; // Failed to load character
+            }
+
+            width += font.face->glyph->advance.x >> 6;
+        }
+
+        return width;
+    }
+};
+
+
+FontLib_t FontLib;

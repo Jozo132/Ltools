@@ -1,8 +1,8 @@
 # Compiler and flags
 CXX := g++
 # CXXFLAGS := -std=c++11 -Wall -Iinclude -march=native -mpclmul -maes
-CXXFLAGS := -std=c++11 -Iinclude -march=native -mpclmul -maes
-LDFLAGS := -Llib
+CXXFLAGS := -std=c++11 -Iinclude -lfreetype -march=native -mpclmul -maes
+LDFLAGS := -Llib -lfreetype
 LDLIBS := # Add any libraries here
 
 # Directories
@@ -11,10 +11,13 @@ INCLUDE_DIR := include
 RESOURCES_DIR := resources
 LIB_DIR := lib
 BUILD_DIR := build
+WIN_BUILD_DIR := C:/win-build/include
 
 # Build types
 DEBUG_FLAGS := -g -O0
 RELEASE_FLAGS := -Os
+
+CXXFLAGS += -I$(WIN_BUILD_DIR)/freetype2
 
 # Files
 SOURCES := $(wildcard $(SRC_DIR)/*.cpp)
