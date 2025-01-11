@@ -7,12 +7,14 @@
 #include <stdint.h>
 #include <string.h>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <math.h>
 #include <vector>
 #include <chrono>
 #include <algorithm>
-
+#include <unistd.h>
+#include "base64.h"
 
 
 

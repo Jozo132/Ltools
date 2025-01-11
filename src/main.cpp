@@ -1,5 +1,5 @@
 #include "zpl-tools.h"
-
+#include "pipe.h"
 
 int main(int arg_c, char** arg_v) {
     hide_console();
@@ -7,8 +7,9 @@ int main(int arg_c, char** arg_v) {
     PNG_ENCODER png_mode = PE_LODEPNG; // smaller PNG size
     bool test_reuse = false;
     bool silent = false;
-    bool headless = false;
+    bool loud = false;
     bool print_memory = false;
+    bool streamBase64 = false;
     std::string zpl_full_path = "";
     int num_of_tests = 15;
     for (int arg_i = 1; arg_i < arg_c; arg_i++) {
@@ -23,19 +24,23 @@ int main(int arg_c, char** arg_v) {
             continue;
         }
         if (arg == "-m") {
-            print_memory = true; // print memory usage
+            print_memory = true; // print memory usage (for debugging)
+            continue;
+        }
+        if (arg == "-b") {
+            streamBase64 = true; // stream PNG data as base64
             continue;
         }
         if (arg == "silent") {
-            silent = true; // no notifications
+            silent = true; // no stdout output
             continue;
         }
-        if (arg == "headless") {
-            headless = true; // no notifications and no console
+        if (arg == "loud") {
+            loud = true; // enable pop-up notifications
             continue;
         }
         if (arg == "-t") {
-            test_reuse = true; // run multiple times
+            test_reuse = true; // run multiple times for testing
             // Parse number
             if (arg_i + 1 < arg_c) {
                 num_of_tests = atoi(arg_v[arg_i + 1]);
@@ -44,27 +49,42 @@ int main(int arg_c, char** arg_v) {
             }
             continue;
         }
-        // Handle '-i <file>' for input file
-        if (arg == "-i" && arg_i + 1 < arg_c) {
-            zpl_full_path = arg_v[arg_i + 1];
-            continue;
-        }
         // Handle "<file>" for input without '-' prefix
         if (zpl_full_path.empty() && arg[0] != '-') {
             zpl_full_path = arg;
             continue;
         }
     }
-    if (silent || headless) notifications_enabled = false;
 
-    if (zpl_full_path.empty()) {
+    bool got_file = !zpl_full_path.empty();
+
+    notifications_enabled = loud;
+
+    std::string pipe_data = getPipe();
+    bool got_pipe = !pipe_data.empty();
+
+    if (got_pipe || streamBase64) {
+        silent = true;
+        streamBase64 = true;
+    }
+
+    // if (got_pipe) {
+    //     printf("Pipe data: %s\n", pipe_data.c_str());
+    // } else {
+    //     printf("No data found in the pipe.\n");
+    // }
+
+
+    if (!got_pipe && !got_file) {
         if (!silent) {
             notify("No ZPL file specified\n");
-            printf("Usage: zpl2png -i <file> [-f] [-s] [-t]\n");
-            printf("  -i <file>  ZPL file to convert to PNG\n");
+            printf("Usage: zpl2png <file> [-f] [-s] [-b] [silent] [loud]\n");
+            printf("  <file>  ZPL file to convert to PNG\n");
             printf("  -f         Use fast PNG encoding (default is small PNG size)\n");
             printf("  -s         Use small PNG size (default is fast PNG encoding)\n");
-            printf("  -t         Run multiple times (default is once)\n");
+            printf("  -b         Stream PNG data as base64\n");
+            printf("  silent     No stdout output\n");
+            printf("  loud       Enable pop-up notifications\n");
         }
         return 1;
     }
@@ -87,15 +107,20 @@ int main(int arg_c, char** arg_v) {
 
 
     timer.start("Total");
+    std::string zpl_input;
     size_t size = 0;
     // timer.start("Loaded");
-    const char* zpl_raw = loadFile(zpl_file.c_str());
-    if (!zpl_raw) {
-        notifyf("Failed to load ZPL file: %s\n", zpl_file.c_str());
-        return 1;
+    if (got_file && !got_pipe) {
+        const char* zpl_raw = loadFile(zpl_file.c_str());
+        if (!zpl_raw) {
+            notifyf("Failed to load ZPL file: %s\n", zpl_file.c_str());
+            return 1;
+        }
+        zpl_input = zpl_raw;
+        // timer.log("Loaded");
+    } else if (got_pipe) {
+        zpl_input = pipe_data.c_str();
     }
-    std::string zpl_input = zpl_raw;
-    // timer.log("Loaded");
 
 
     const int width = 1800;
@@ -113,11 +138,19 @@ int main(int arg_c, char** arg_v) {
 
         if (error) {
             notifyf("Error converting ZPL to PNG: %d\n", error);
+            printf("ZPL data: %d bytes\n%s\n", zpl_input.size(), zpl_input.c_str());
             return 2;
         }
 
         // Save to a file with the same name as the ZPL file but with a PNG extension
-        saveFile(png_full_path.c_str(), (const char*) png_output.data(), png_output.size());
+        if (got_file && !streamBase64) {
+            saveFile(png_full_path.c_str(), (const char*) png_output.data(), png_output.size());
+        }
+        if (streamBase64) {
+            // printf("PNG data: %d bytes\n", png_output.size());
+            std::string png_base64 = b64encode(png_output.data(), png_output.size());
+            printf("%s\n", png_base64.c_str());
+        }
         size = png_output.size();
         double saved = timer.time("Total_2");
         if (!print_memory && test_reuse && !silent) printf("Total time: %.1f ms for %d bytes\n", saved * 1000.0, size);
