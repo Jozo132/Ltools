@@ -62,7 +62,7 @@ $(BUILD_DIR):
 # Move executable to final directory and run ./addToContextMenu.reg
 install: CXXFLAGS += $(RELEASE_FLAGS)
 install: $(INPUT)
-	@if not exist $(FINAL_DIR) mkdir $(FINAL_DIR)
+	@if not exist "$(FINAL_DIR)" mkdir "$(FINAL_DIR)"
 	@echo Moving executable to $(FINAL_BIN)
 	@copy "./$(TARGET).exe" $(FINAL_BIN)
 	@echo Adding to context menu...
