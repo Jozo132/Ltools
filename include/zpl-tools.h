@@ -59,6 +59,7 @@ enum ZPL_CMD {
     CF, // Change Font
     PW, // Print Width in Dots
     LL, // Label Length in Dots
+    PQ, // Print Quantity (Number of Copies)
     FO, // Field Origin
     FR, // Invert
     GB, // Graphic Box
@@ -81,6 +82,7 @@ enum ZPL_CMD {
     "CF", \
     "PW", \
     "LL", \
+    "PQ", \
     "FO", \
     "FR", \
     "GB", \
@@ -142,6 +144,7 @@ struct ZPL_element {
             case CF: printf("        Font: %d, %d\n", font_type, font_size); break;
             case PW: printf("        Print Width: %d\n", width); break;
             case LL: printf("        Label Length: %d\n", height); break;
+            case PQ: printf("        Print Quantity: %d\n", x); break;
             case FO: printf("        Field Origin: %d, %d\n", x, y); break;
             case FX: printf("        Comment: %s\n", text); break;
             case FD: printf("        Text %d,%d: %s\n", font_type, font_size, text); break;
@@ -459,6 +462,7 @@ public:
 
     int label_width_parm = 0;
     int label_height_parm = 0;
+    int copies = 1;
 
     ZPL_state state;
     ZPL_element elements[ZPL_MAX_ELEMENTS];
@@ -517,7 +521,7 @@ public:
     void draw(Image& im) {
         if (label_width_parm > 0 && label_height_parm > 0) {
             im.resize(label_width_parm, label_height_parm, WHITE);
-        } 
+        }
         if (im.width <= 0 || im.height <= 0) return;
         for (int i = 0; i < length; i++) {
             ZPL_element& element = elements[i];
@@ -549,6 +553,7 @@ ZPL_CMD nextCommand(const char* str, int len) {
     if (startsWith(str, "CF")) return CF;
     if (startsWith(str, "PW")) return PW;
     if (startsWith(str, "LL")) return LL;
+    if (startsWith(str, "PQ")) return PQ;
     if (startsWith(str, "FO")) return FO;
     if (startsWith(str, "FR")) return FR;
     if (startsWith(str, "GB")) return GB;
@@ -845,6 +850,19 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 label.push(element);
             } break;
 
+            case PQ: {
+                // ^PQ3
+                int copies = 1;
+                ZPL_PARSE_NUMBER(copies, Z_REQUIRED);
+                if (copies < 1) copies = 1;
+                ZPL_element element = {};
+                element.str = substring(c0, 0, parsed);
+                element.len = parsed;
+                element.type = cmd;
+                element.x = copies;
+                label.copies = copies;
+                label.push(element);
+            } break;
             case FO: {
                 // ^FO10,10
                 ZPL_PARSE_NUMBER(x, Z_REQUIRED);
