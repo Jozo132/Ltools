@@ -1,5 +1,6 @@
 #pragma once
 
+#include "memory_health.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,6 +12,8 @@
 #include <vector>
 #include <chrono>
 #include <algorithm>
+
+
 
 
 #ifdef _WIN32
@@ -25,9 +28,11 @@ void hide_console() {
 #endif // _WIN32
 }
 
+bool notifications_enabled = true;
 bool notification_thrown = false;
 void notify(const char* message) {
 	printf("Ltools: %s\n", message);
+	if (!notifications_enabled) return;
 #ifdef _WIN32
 	if (!notification_thrown) MessageBox(NULL, (LPCSTR) message, (LPCSTR) "Ltools", MB_OK | MB_ICONEXCLAMATION);
 	notification_thrown = true;
