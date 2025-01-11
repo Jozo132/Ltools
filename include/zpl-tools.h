@@ -178,6 +178,7 @@ struct ZPL_element {
             case FD: {
                 float ix = x;
                 float iy = y;
+                const Color stroke = color == 'W' ? WHITE : BLACK;
                 bool font_found = true;
                 switch (font_type) {
                     case 0: FontLib.setFont("Helvetica", font_size); break;
@@ -213,16 +214,19 @@ struct ZPL_element {
                         for (int iy = 0; iy < height; iy++) {
                             for (int ix = 0; ix < width; ix++) {
                                 uint8_t greyscale = bitmap.buffer[((int) iy) * width + ((int) ix)]; // Single 8 bit value
+                                // if (greyscale > 0) {
+                                    // greyscale = inverted ? greyscale : (255 - greyscale);
+                                    // Color color = { greyscale , greyscale, greyscale,  0xFF };
+                                    // image->drawPixel(offsetX + ix, y + iy + offsetY, color, inverted);
+                                // }
                                 if (greyscale > 0) {
-                                    greyscale = inverted ? greyscale : (255 - greyscale);
-                                    Color color = { greyscale , greyscale, greyscale,  0xFF };
-                                    image->drawPixel(offsetX + ix, y + iy + offsetY, color, inverted);
+                                    image->drawPixel(offsetX + ix, y + iy + offsetY, stroke, inverted);
                                 }
                             }
                         }
                         x_pos += g->advance.x >> 6;
                     } else {
-                        printf("Glyph '%c' not found for font '%s'\n", c, "Helvetica");
+                        printf("Glyph '%c' not found\n", c);
                     }
                 }
             } break;
