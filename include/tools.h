@@ -21,17 +21,16 @@ void hide_console() {
 #ifdef _WIN32
 	// Hide the console window in Windows
 	HWND hwnd = GetConsoleWindow();
-	if (hwnd != NULL) {
-		ShowWindow(hwnd, SW_HIDE);
-	}
+	if (hwnd != NULL) ShowWindow(hwnd, SW_HIDE);
 #endif // _WIN32
 }
 
-
+bool notification_thrown = false;
 void notify(const char* message) {
 	printf("Ltools: %s\n", message);
 #ifdef _WIN32
-	MessageBox(NULL, (LPCSTR) message, (LPCSTR) "Ltools", MB_OK);
+	if (!notification_thrown) MessageBox(NULL, (LPCSTR) message, (LPCSTR) "Ltools", MB_OK | MB_ICONEXCLAMATION);
+	notification_thrown = true;
 #endif // _WIN32
 }
 
