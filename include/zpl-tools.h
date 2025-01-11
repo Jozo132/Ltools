@@ -456,6 +456,24 @@ public:
     int length = 0;
     Image image;
 
+
+    void clear() {
+        error = 0;
+        message = nullptr;
+        line = 0;
+        column = 0;
+        idx = 0;
+        state.reading = false;
+        if (state.text) free((void*) state.text);
+        // for (int i = 0; i < length; i++) {
+        //     if (elements[i].text) free((void*) elements[i].text);
+        //     if (elements[i].halfbytes) free(elements[i].halfbytes);
+        // }
+        state.reset();
+        length = 0;
+        barcode_awaiting_text = -1;
+    }
+
     bool push(ZPL_element element) {
         if (length >= ZPL_MAX_ELEMENTS) return false;
         element.index = length;
