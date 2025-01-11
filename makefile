@@ -1,8 +1,8 @@
 # Compiler and flags
 CXX := g++
 # CXXFLAGS := -std=c++11 -Wall -Iinclude -march=native -mpclmul -maes
-CXXFLAGS := -MD -std=c++11 -Iinclude -lfreetype -march=native -mpclmul -maes
-LDFLAGS := -Llib -lfreetype
+CXXFLAGS := -MD -std=c++11 -Iinclude -lfreetype -march=native -mpclmul -maes -lpsapi
+LDFLAGS := -Llib -lfreetype -lpsapi
 LDLIBS := # Add any libraries here
 
 # Directories
@@ -36,12 +36,12 @@ all: release
 # Debug build
 debug: CXXFLAGS += $(DEBUG_FLAGS)
 debug: $(INPUT)
-	./$(TARGET) -i $(SAMPLE)
+	./$(TARGET) headless $(SAMPLE)
 
 # Release build
 release: CXXFLAGS += $(RELEASE_FLAGS)
 release: $(INPUT)
-	./$(TARGET) -i $(SAMPLE)
+	./$(TARGET) headless $(SAMPLE)
 
 # Link target
 $(INPUT): $(OBJECTS)

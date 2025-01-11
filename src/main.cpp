@@ -5,9 +5,12 @@ int main(int arg_c, char** arg_v) {
     hide_console();
 
     PNG_ENCODER png_mode = PE_LODEPNG; // smaller PNG size
-    bool once = true;
+    bool test_reuse = false;
+    bool silent = false;
+    bool headless = false;
+    bool print_memory = false;
     std::string zpl_full_path = "";
-
+    int num_of_tests = 15;
     for (int arg_i = 1; arg_i < arg_c; arg_i++) {
         std::string arg = arg_v[arg_i];
         // Handle '-f' for fast PNG encoding and '-s' for small PNG size
@@ -19,8 +22,26 @@ int main(int arg_c, char** arg_v) {
             png_mode = PE_LODEPNG; // smaller PNG size
             continue;
         }
+        if (arg == "-m") {
+            print_memory = true; // print memory usage
+            continue;
+        }
+        if (arg == "silent") {
+            silent = true; // no notifications
+            continue;
+        }
+        if (arg == "headless") {
+            headless = true; // no notifications and no console
+            continue;
+        }
         if (arg == "-t") {
-            once = false; // run multiple times
+            test_reuse = true; // run multiple times
+            // Parse number
+            if (arg_i + 1 < arg_c) {
+                num_of_tests = atoi(arg_v[arg_i + 1]);
+                if (num_of_tests < 1) num_of_tests = 15;
+                else arg_i++;
+            }
             continue;
         }
         // Handle '-i <file>' for input file
@@ -34,14 +55,17 @@ int main(int arg_c, char** arg_v) {
             continue;
         }
     }
+    if (silent || headless) notifications_enabled = false;
 
     if (zpl_full_path.empty()) {
-        notify("No ZPL file specified\n");
-        printf("Usage: zpl2png -i <file> [-f] [-s] [-t]\n");
-        printf("  -i <file>  ZPL file to convert to PNG\n");
-        printf("  -f         Use fast PNG encoding (default is small PNG size)\n");
-        printf("  -s         Use small PNG size (default is fast PNG encoding)\n");
-        printf("  -t         Run multiple times (default is once)\n");
+        if (!silent) {
+            notify("No ZPL file specified\n");
+            printf("Usage: zpl2png -i <file> [-f] [-s] [-t]\n");
+            printf("  -i <file>  ZPL file to convert to PNG\n");
+            printf("  -f         Use fast PNG encoding (default is small PNG size)\n");
+            printf("  -s         Use small PNG size (default is fast PNG encoding)\n");
+            printf("  -t         Run multiple times (default is once)\n");
+        }
         return 1;
     }
 
@@ -64,27 +88,28 @@ int main(int arg_c, char** arg_v) {
 
     timer.start("Total");
     size_t size = 0;
-    timer.start("Loaded");
-    std::string zpl_input = loadFile(zpl_file.c_str());
-    timer.log("Loaded");
+    // timer.start("Loaded");
+    const char* zpl_raw = loadFile(zpl_file.c_str());
+    if (!zpl_raw) {
+        notifyf("Failed to load ZPL file: %s\n", zpl_file.c_str());
+        return 1;
+    }
+    std::string zpl_input = zpl_raw;
+    // timer.log("Loaded");
 
 
     const int width = 1800;
     const int height = 1200;
 
+    std::vector<uint8_t> png_output;
+    if (print_memory) printHeapUsage();
 
-    for (int i = 0; i < 5; i++) {
-        if (once && i > 0) break;
-        if (!once) {
-            printf("#################################\n");
-            printf("###### RENDERING CYCLE  %d #######\n", i);
-            printf("#################################\n");
-        }
+    for (int i = 0; i < num_of_tests; i++) {
+        if (!test_reuse && i > 0) break;
 
         timer.start("Total_2");
 
-        std::vector<uint8_t> png_output;
-        int error = zpl2png(zpl_input, png_output, width, height, 0, png_mode, true); // Faster but less compression
+        int error = zpl2png(zpl_input, png_output, width, height, 0, png_mode, !print_memory && !silent); // Faster but less compression
 
         if (error) {
             notifyf("Error converting ZPL to PNG: %d\n", error);
@@ -95,9 +120,10 @@ int main(int arg_c, char** arg_v) {
         saveFile(png_full_path.c_str(), (const char*) png_output.data(), png_output.size());
         size = png_output.size();
         double saved = timer.time("Total_2");
-        if (!once) printf("Total PNG: %.1f ms for %d bytes\n", saved * 1000.0, size);
+        if (!print_memory && test_reuse && !silent) printf("Total time: %.1f ms for %d bytes\n", saved * 1000.0, size);
+        if (print_memory) printHeapUsage();
     }
     double total = timer.time("Total");
-    if (once) printf("Total time: %.1f ms for %d bytes\n", total * 1000.0, size);
+    if (!test_reuse && !silent) printf("Total time: %.1f ms for %d bytes\n", total * 1000.0, size);
     return 0;
 }

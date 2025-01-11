@@ -1105,21 +1105,20 @@ int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int
         return 1;
     }
     // if (debug) timer.start("zpl2png total");
-    if (debug) timer.start("Decode ZPL");
-    ZPL_label* label_output = parse_zpl(zpl_text.c_str(), zpl_text.length()); // Decode ZPL
-    if (debug) timer.log("Decode ZPL");
-    if (!label_output) {
+    if (debug) timer.start("Parse ZPL");
+    ZPL_label* label = parse_zpl(zpl_text.c_str(), zpl_text.length()); // Decode ZPL
+    if (debug) timer.log("Parse ZPL");
+    if (!label) {
         notifyf("Error parsing ZPL\n");
         return 2;
     }
-    ZPL_label& label = label_output[0];
-    if (label.error) {
-        notifyf("Error reading ZPL: %s\n", label.message);
+    if (label->error) {
+        notifyf("Error reading ZPL: %s\n", label->message);
         return 3;
     }
     if (debug) timer.start("Render ZPL to image");
     temp_image.resize(width, height, WHITE);
-    label.draw(temp_image); // Render ZPL to image
+    label->draw(temp_image); // Render ZPL to image
     if (debug) timer.log("Render ZPL to image");
     if (debug) timer.start("Compress image to PNG");
     // std::vector<unsigned char>* png = image.toPNG(PE_LODEPNG); // Slower but better compression
