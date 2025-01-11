@@ -36,12 +36,12 @@ all: release
 # Debug build
 debug: CXXFLAGS += $(DEBUG_FLAGS)
 debug: $(INPUT)
-	./$(TARGET) headless $(SAMPLE)
+	./$(TARGET) $(SAMPLE)
 
 # Release build
 release: CXXFLAGS += $(RELEASE_FLAGS)
 release: $(INPUT)
-	./$(TARGET) headless $(SAMPLE)
+	./$(TARGET) $(SAMPLE)
 
 # Link target
 $(INPUT): $(OBJECTS)
