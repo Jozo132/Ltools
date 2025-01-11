@@ -33,6 +33,7 @@ private:
 
     Font* selectedFont = nullptr;
     int fontSize = 12;
+    bool monochrome = false; // Doesn't work correctly
 
 public:
     FontLib_t() {
@@ -112,7 +113,7 @@ public:
             return nullptr;
         }
 
-        if (FT_Load_Char(selectedFont->face, c, FT_LOAD_RENDER)) {
+        if (FT_Load_Char(selectedFont->face, c, monochrome ? FT_LOAD_RENDER|FT_LOAD_MONOCHROME : FT_LOAD_RENDER)) {
             printf("Failed to load character %c\n", c);
             return nullptr;
         }
