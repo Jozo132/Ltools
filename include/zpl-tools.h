@@ -117,7 +117,7 @@ struct ZPL_element {
     int radius = 0; // 0 - 8 (0 = square corners, 8 = round corners)
     int inset = 0;
     char color = 'B'; // B = Black, W = White
-    const char* text = nullptr;
+    std::string text;
     int font_type = 0;
     int font_size = 0;
     bool inverted = false;
@@ -149,16 +149,16 @@ struct ZPL_element {
             case PW: printf("        Print Width: %d\n", width); break;
             case LL: printf("        Label Length: %d\n", height); break;
             case PQ: printf("        Print Quantity: %d\n", x); break;
-            case SN: printf("        Serial Number: %s\n", text); break;
+            case SN: printf("        Serial Number: %s\n", text.c_str()); break;
             case FO: printf("        Field Origin: %d, %d\n", x, y); break;
-            case FX: printf("        Comment: %s\n", text); break;
-            case FD: printf("        Text %d,%d: %s\n", font_type, font_size, text); break;
+            case FX: printf("        Comment: %s\n", text.c_str()); break;
+            case FD: printf("        Text %d,%d: %s\n", font_type, font_size, text.c_str()); break;
             case GB: printf("        Rect: %d, %d, %d, %d, %d, %c, %d\n", x, y, width, height, inset, color, radius); break;
             case FR: printf("        Invert\n"); break;
             case FS: printf("        End Field\n"); break;
             case BY: printf("        Barcode Field Default %d, %d, %d, %d, %c, %c, %c, %c\n", x, y, width, height, orientation, check, interpretation, interpretation_above); break;
-            case B3: printf("        Barcode [%d,%d] Code 39 %c,%c,%d,%c,%c -> %s\n", x, y, orientation, check, barcode_height, interpretation, interpretation_above, text); break;
-            case BC: printf("        Barcode [%d,%d] Code 128 %c,%c,%d,%c,%c -> %s\n", x, y, orientation, check, barcode_height, interpretation, interpretation_above, text); break;
+            case B3: printf("        Barcode [%d,%d] Code 39 %c,%c,%d,%c,%c -> %s\n", x, y, orientation, check, barcode_height, interpretation, interpretation_above, text.c_str()); break;
+            case BC: printf("        Barcode [%d,%d] Code 128 %c,%c,%d,%c,%c -> %s\n", x, y, orientation, check, barcode_height, interpretation, interpretation_above, text.c_str()); break;
             case GF: printf("        Graphic Field\n"); break;
 
             default: printf("        Other: %d\n", type); break;
@@ -216,7 +216,8 @@ struct ZPL_element {
                 // ImageDrawTextEx(image, font, text, (Vector2) { ix, iy }, font_size, 0, BLACK);
                 int offset = font_size * 2 / 3;
                 int x_pos = ix;
-                for (int i = 0; i < len; i++) {
+                int length = text.length();
+                for (int i = 0; i < length; i++) {
                     char c = text[i];
                     FT_GlyphSlot* glyph = FontLib.getChar(c);
                     if (glyph) {
@@ -269,7 +270,7 @@ struct ZPL_element {
                 int h = barcode_height;
                 int w = barcode_width;
                 // interpretation_above
-                ImageDrawBarcode_Code39(image, text, x, y, h, w, show, checksum, inverted);
+                ImageDrawBarcode_Code39(image, text.c_str(), x, y, h, w, show, checksum, inverted);
             } break;
 
             case BC: {
@@ -279,7 +280,7 @@ struct ZPL_element {
                 int h = barcode_height;
                 int w = barcode_width;
                 // interpretation_above
-                ImageDrawBarcode_Code128(image, text, x, y, h, w, show, inverted);
+                ImageDrawBarcode_Code128(image, text.c_str(), x, y, h, w, show, inverted);
             } break;
 
             default: {
@@ -487,7 +488,7 @@ public:
         column = 0;
         idx = 0;
         state.reading = false;
-        if (state.text) free((void*) state.text);
+        // if (state.text) free((void*) state.text);
         // for (int i = 0; i < length; i++) {
         //     if (elements[i].text) free((void*) elements[i].text);
         //     if (elements[i].halfbytes) free(elements[i].halfbytes);
@@ -497,14 +498,6 @@ public:
         barcode_awaiting_text = -1;
     }
 
-    // bool push(ZPL_element element) {
-    //     if (length >= ZPL_MAX_ELEMENTS) return false;
-    //     element.index = length;
-    //     // element.print(); // Debug
-    //     if (element.barcode) barcode_awaiting_text = length;
-    //     elements[length++] = element;
-    //     return true;
-    // }
     void print() {
         printf("    Label with %d elements\n", length);
         for (int i = 0; i < length; i++) {
@@ -755,6 +748,8 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
     idx = 0;
     char* c = (char*) zpl_text;
 
+    char temp[ZPL_MAX_STRING];
+
     ZPL_CMD cmd = UNKNOWN;
     ZPL_parsing_error err;
     while (idx < zpl_len) {
@@ -877,7 +872,6 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 
             case SN: {
                 // ^SN0001,1,Y
-                char* temp = (char*) malloc(ZPL_MAX_STRING);
                 ZPL_PARSE_STRING(temp, Z_REQUIRED, WITHOUT_DELIMITER);
                 int increment = 1;
                 ZPL_PARSE_NUMBER(increment, Z_OPTIONAL);
@@ -924,7 +918,6 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 ZPL_PARSE_NUMBER(width, Z_REQUIRED);
                 ZPL_PARSE_NUMBER(height, Z_REQUIRED);
                 ZPL_PARSE_NUMBER(inset, Z_OPTIONAL);
-                char* temp = (char*) malloc(ZPL_MAX_STRING);
                 ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITHOUT_DELIMITER);
                 if (temp[0] == 'B' || temp[0] == 'W') color = temp[0];
                 ZPL_PARSE_NUMBER(radius, Z_OPTIONAL);
@@ -946,7 +939,6 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 
             case FD: {
                 // ^FDHello, World^FS
-                char* temp = (char*) malloc(ZPL_MAX_STRING);
                 ZPL_PARSE_STRING(temp, Z_REQUIRED, WITH_DELIMITER);
                 if (label.barcode_awaiting_text >= 0) {
                     ZPL_element& bc = label.elements[label.barcode_awaiting_text];
@@ -975,7 +967,6 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
             case FX: {
                 // ^FX Demo VDA4902 Label Template
                 // Only store the text
-                char* temp = (char*) malloc(ZPL_MAX_STRING);
                 ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITH_DELIMITER);
                 ZPL_element* element = label.nextElement();
                 ZPL_VEFIRY_ELEMENT(element);
