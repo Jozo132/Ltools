@@ -27,7 +27,7 @@ enum PNG_ENCODER {
 enum FPNG_FLAGS {
     // Enables computing custom Huffman tables for each file, instead of using the custom global tables. 
     // Results in roughly 6% smaller files on average, but compression is around 40% slower.
-    FPNG_ENCODE_SLOWER = 1, 
+    FPNG_ENCODE_SLOWER = 1,
     // Only use raw Deflate blocks (no compression at all). Intended for testing.
     FPNG_FORCE_UNCOMPRESSED = 2,
 };
@@ -41,6 +41,7 @@ public:
     std::vector<unsigned char> output;
 
     std::vector<unsigned char>* toPNG(PNG_ENCODER encoder = PE_LODEPNG) {
+        output.clear();
         if (encoder == PE_LODEPNG) {
             int error = lodepng::encode(output, data, width, height);
             if (error) {
@@ -48,11 +49,11 @@ public:
                 return nullptr;
             }
             return &output;
-        } 
+        }
         if (encoder == PE_FPNG) {
             // Initialize FPNG
             fpng::fpng_init();
-            const void *ref = this->data.data();
+            const void* ref = this->data.data();
             int channels = 4; // RGBA
             bool success = fpng::fpng_encode_image_to_memory(ref, width, height, channels, output, FPNG_ENCODE_SLOWER);
             if (!success) {
@@ -91,10 +92,13 @@ public:
     }
 
     void resize(int width, int height, Color color) {
-        this->width = width;
-        this->height = height;
+        if (width <= 0 || height <= 0) return;
+        if (width != this->width || height != this->height) {
+            this->width = width;
+            this->height = height;
+            data.resize(width * height * 4);
+        }
         this->background = color;
-        data.resize(width * height * 4);
         clear(color);
     }
 
