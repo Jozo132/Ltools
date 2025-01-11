@@ -5,6 +5,9 @@
 ^FX A5 landscape border
 ^FO10,10^GB1200,792,3^FS
 
+^PW1220 ^FX Set label width in dots
+^LL830  ^FX Set label length in dots
+
 ^FX VDA 4902 frame
 ^FX Horizontal Dividers
 ^FO10,110^GB1200,1,1^FS
@@ -28,114 +31,114 @@
 
 ^FX Section 1: Receiver
 ^FO20,20^FD(1) Receiver^FS
-^CF,32
+^CF0,32
 ^FO20,45^FDXYZ Motors Inc.^FS
 ^FO20,80^FD1234 Industrial Drive, Detroit, 48201^FS
 
 ^FX Section 2: Dock-Gate
-^CF,16
+^CF0,16
 ^FO610,20^FD(2) Dock - Gate^FS
-^CF,38
+^CF0,38
 ^FO610,50^FDWH-SECTOR-B3^FS
 
 ^FX Section 3: Advice Note No
-^CF,16
+^CF0,16
 ^FO20,120^FD(3) Advice Note No (N)^FS
-^CF,40
+^CF0,40
 ^FO190,120^FD1122334455^FS
 ^FO30,160^BY2^B3N,N,80,N,N^FD1122334455^FS
 
 ^FX Section 4: Supplier Address
-^CF,16
+^CF0,16
 ^FO610,120^FD(4) Supplier Address^FS
-^CF,32
+^CF0,32
 ^FO610,150^FD5678 Supplier Lane, Cleveland, 44114^FS
 
 ^FX Section 5: Net weight
-^CF,16
+^CF0,16
 ^FO610,190^FD(5) Net weight^FS
-^CF,38
+^CF0,38
 ^FO610,210^FD24.8kg^FS
 
 ^FX Section 6: Gross weight
-^CF,16
+^CF0,16
 ^FO810,190^FD(6) Gross weight^FS
-^CF,38
+^CF0,38
 ^FO810,210^FD25.5kg^FS
 
 ^FX Section 7: No Boxes
-^CF,16
+^CF0,16
 ^FO1010,190^FD(7) No Boxes^FS
-^CF,38
-^FO1010,210^FD12^FS
+^CF0,38
+^FO1010,210^FD 12^FS
 
 ^FX Section 8: Part No
-^CF,16
+^CF0,16
 ^FO20,260^FD(8) Part No (P)^FS
-^CF,48
+^CF0,48
 ^FO150,260^FD123456789012^FS
 ^FO30,300^BY2^B3N,N,90,N,N^FD123456789012^FS
 
 ^FX Section 9: Quantity
-^CF,16
+^CF0,16
 ^FO20,410^FD(9) Quantity (Q)^FS
-^CF,48
+^CF0,48
 ^FO140,410^FD 500^FS
 ^FO30,460^BY2^B3N,N,90,N,N^FD500^FS
 
 ^FX Section 10: Description
-^CF,16
+^CF0,16
 ^FO610,410^FD(10) Description^FS
-^CF,38
+^CF0,38
 ^FO610,430^FDBrake Pad Assembly^FS
 
 ^FX Section 11: Supplier Part No
-^CF,16
+^CF0,16
 ^FO610,480^FD(11) Supplier Part No (30S)^FS
-^CF,38
+^CF0,38
 ^FO610,500^FDCP-45678-BRK^FS
 ^FO620,540^BY2^B3N,N,70,N,N^FDCP-45678-BRK^FS
 
 ^FX Section 12: Supplier
-^CF,16
+^CF0,16
 ^FO20,570^FD(12) Supplier (V)^FS
-^CF,48
+^CF0,48
 ^FO150,570^FD987654321^FS
 ^FO30,610^BY2^B3N,N,50,N,N^FD987654321^FS
 
 ^FX Section 13: Date
-^CF,16
+^CF0,16
 ^FO610,630^FD(13) Date^FS
-^CF,28
+^CF0,28
 ^FO690,640^FD D 241215^FS
 
 ^FX Section 14: Eng. Change
-^CF,16
+^CF0,16
 ^FO850,630^FD(14) Eng. Change^FS
-^CF,28
+^CF0,28
 ^FO990,640^FD B33-827 A^FS
 
 ^FX Section 15: Serial No
-^CF,16
+^CF0,16
 ^FO20,680^FD(15) Serial No (S)^FS
-^CF,48
+^CF0,48
 ^FO160,680^FD 852934^FS
 ^FO30,720^BY2^B3N,N,70,N,N^FD852934^FS
 
 ^FX Section 16: Batch No
-^CF,16
+^CF0,16
 ^FO610,680^FD(16) Batch No (F)^FS
-^CF,32
+^CF0,32
 ^FO760,680^FDA12345B67890^FS
 ^FO620,710^BY2^B3N,N,80,N,N^FDA12345B67890^FS
 
 ^FX Section 17: Sender
-^CF,16
+^CF0,16
 ^FO20,810^FDABC Automotive Parts Co.^FS
 ^FO610,810^FDVDA4902 Label^FS
 
 ^FX Last Section: Timestamp
-^CF,16
+^CF0,16
 ^FO1050,810^FD2024-12-15 09:23:56^FS
 
 
