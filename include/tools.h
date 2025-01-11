@@ -13,6 +13,39 @@
 #include <algorithm>
 
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+void hide_console() {
+#ifdef _WIN32
+	// Hide the console window in Windows
+	HWND hwnd = GetConsoleWindow();
+	if (hwnd != NULL) {
+		ShowWindow(hwnd, SW_HIDE);
+	}
+#endif // _WIN32
+}
+
+
+void notify(const char* message) {
+	printf("Ltools: %s\n", message);
+#ifdef _WIN32
+	MessageBox(NULL, (LPCSTR) message, (LPCSTR) "Ltools", MB_OK);
+#endif // _WIN32
+}
+
+// notifyf("Title", "Message %d", 123);
+void notifyf(const char* format, ...) {
+	char buffer[1024];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buffer, sizeof(buffer), format, args);
+	va_end(args);
+	notify(buffer);
+}
+
+
 #ifndef RAD2DEG
 #define RAD2DEG 57.295779513082320876798154814105
 #endif
@@ -190,7 +223,7 @@ char* loadFile(const char* fileName) {
 
 int saveFile(const char* fileName, const char* data, int size) {
 	if (size <= 0) {
-		printf("Error: No data to save\n");
+		notifyf("Error: No data to save\n");
 		return -1;
 	}
 	std::ofstream file(fileName, std::ios::binary);
@@ -205,17 +238,3 @@ int saveFile(const char* fileName, const char* data, int size) {
 }
 
 
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-void hide_console() {
-	#ifdef _WIN32
-		// Hide the console window in Windows
-		HWND hwnd = GetConsoleWindow();
-		if (hwnd != NULL) {
-			ShowWindow(hwnd, SW_HIDE);
-		}
-	#endif // _WIN32
-}

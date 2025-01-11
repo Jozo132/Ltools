@@ -51,12 +51,12 @@ public:
 
     int loadFont(const char* name, const char* data, size_t length) {
         if (fontTable.size() >= maxFonts) {
-            printf("Maximum number of fonts loaded\n");
+            notifyf("Maximum number of fonts loaded\n");
             return -1; // Maximum number of fonts loaded
         }
 
         if (fontTable.find(name) != fontTable.end()) {
-            printf("Font already loaded\n");
+            notifyf("Font already loaded\n");
             return -2; // Font already loaded
         }
 
@@ -65,7 +65,7 @@ public:
         font.data.assign(data, data + length);
 
         if (FT_New_Memory_Face(ftLibrary, font.data.data(), length, 0, &font.face)) {
-            printf("Failed to load font\n");
+            notifyf("Failed to load font\n");
             return -3; // Failed to load font
         }
 
@@ -85,7 +85,7 @@ public:
                 if (strcmp(name, ttf_fonts[i].name) == 0) {
                     int error = loadFont(name, (const char*) ttf_fonts[i].data, ttf_fonts[i].length);
                     if (error) {
-                        printf("Failed to load font\n");
+                        notifyf("Failed to load font\n");
                         return -1; // Failed to load font
                     }
                     it = fontTable.find(name);
@@ -104,17 +104,17 @@ public:
         }
 
         if (selectedFont == nullptr) {
-            printf("No font selected\n");
+            notifyf("No font selected\n");
             return nullptr;
         }
 
         if (FT_Set_Pixel_Sizes(selectedFont->face, 0, fontSize)) {
-            printf("Failed to set font size %d\n", fontSize);
+            notifyf("Failed to set font size %d\n", fontSize);
             return nullptr;
         }
 
         if (FT_Load_Char(selectedFont->face, c, monochrome ? FT_LOAD_RENDER|FT_LOAD_MONOCHROME : FT_LOAD_RENDER)) {
-            printf("Failed to load character %c\n", c);
+            notifyf("Failed to load character %c\n", c);
             return nullptr;
         }
 

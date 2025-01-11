@@ -115,17 +115,17 @@ void ImageDrawBarcode_Code39(Image* image, const char* text, int x, int y, int h
     printf("  Height: %d, Scale: %d, Show Text: %d, Checksum: %d\n", height, scale, show_text, checksum);
 #endif
     if (!image) {
-        printf("Error: Image is null\n");
+        notifyf("Error: Image is null\n");
         return;
     }
     if (!text) {
-        printf("Error: Text is null\n");
+        notifyf("Error: Text is null\n");
         return;
     }
     // Create barcode object
     Barcode* bc = Factory::createBarcode("code39");
     if (!bc) {
-        printf("Error: Barcode is undefined\n");
+        notifyf("Error: Barcode is undefined\n");
         return;
     }
     // Set barcode options
@@ -149,17 +149,17 @@ void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int 
     printf("  Height: %d, Scale: %d, Show Text: %d\n", height, scale, show_text);
 #endif
     if (!image) {
-        printf("Error: Image is null\n");
+        notifyf("Error: Image is null\n");
         return;
     }
     if (!text) {
-        printf("Error: Text is null\n");
+        notifyf("Error: Text is null\n");
         return;
     }
     // Create barcode object
     Barcode* bc = Factory::createBarcode("code128");
     if (!bc) {
-        printf("Error: Barcode is undefined\n");
+        notifyf("Error: Barcode is undefined\n");
         return;
     }
     // Set barcode options

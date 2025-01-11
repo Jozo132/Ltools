@@ -45,7 +45,7 @@ public:
         if (encoder == PE_LODEPNG) {
             int error = lodepng::encode(output, data, width, height);
             if (error) {
-                printf("Error encoding PNG: %s\n", lodepng_error_text(error));
+                notifyf("Error encoding PNG: %s\n", lodepng_error_text(error));
                 return nullptr;
             }
             return &output;
@@ -57,12 +57,12 @@ public:
             int channels = 4; // RGBA
             bool success = fpng::fpng_encode_image_to_memory(ref, width, height, channels, output, FPNG_ENCODE_SLOWER);
             if (!success) {
-                printf("Error encoding PNG\n");
+                notifyf("Error encoding PNG\n");
                 return nullptr;
             }
             return &output;
         }
-        printf("Unknown PNG encoder %d\n", encoder);
+        notifyf("Unknown PNG encoder %d\n", encoder);
         return nullptr;
     }
 

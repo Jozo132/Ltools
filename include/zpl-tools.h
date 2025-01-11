@@ -60,6 +60,7 @@ enum ZPL_CMD {
     PW, // Print Width in Dots
     LL, // Label Length in Dots
     PQ, // Print Quantity (Number of Copies)
+    SN, // Serial Number (Incrementing with each subsequent copy using PQ)
     FO, // Field Origin
     FR, // Invert
     GB, // Graphic Box
@@ -83,6 +84,7 @@ enum ZPL_CMD {
     "PW", \
     "LL", \
     "PQ", \
+    "SN", \
     "FO", \
     "FR", \
     "GB", \
@@ -119,6 +121,8 @@ struct ZPL_element {
     int font_type = 0;
     int font_size = 0;
     bool inverted = false;
+    int increment = 1;
+    bool padding = false;
     bool barcode = false;
     bool show_text = false;
     bool checksum = false;
@@ -145,6 +149,7 @@ struct ZPL_element {
             case PW: printf("        Print Width: %d\n", width); break;
             case LL: printf("        Label Length: %d\n", height); break;
             case PQ: printf("        Print Quantity: %d\n", x); break;
+            case SN: printf("        Serial Number: %s\n", text); break;
             case FO: printf("        Field Origin: %d, %d\n", x, y); break;
             case FX: printf("        Comment: %s\n", text); break;
             case FD: printf("        Text %d,%d: %s\n", font_type, font_size, text); break;
@@ -196,7 +201,7 @@ struct ZPL_element {
                     case 2: FontLib.setFont("OCR-B", font_size); break;
                     case 3: FontLib.setFont("Roboto-Regular", font_size); break;
                     default: {
-                        printf("Unknown font type %d\n", font_type);
+                        notifyf("Unknown font type %d\n", font_type);
                         font_found = false;
                         break;
                     }
@@ -236,7 +241,7 @@ struct ZPL_element {
                         }
                         x_pos += g->advance.x >> 6;
                     } else {
-                        printf("Glyph '%c' not found\n", c);
+                        notifyf("Glyph '%c' not found\n", c);
                     }
                 }
             } break;
@@ -466,10 +471,14 @@ public:
 
     ZPL_state state;
     ZPL_element elements[ZPL_MAX_ELEMENTS];
-    int barcode_awaiting_text = -1;
     int length = 0;
+    int barcode_awaiting_text = -1;
     Image image;
 
+    ZPL_element* nextElement() {
+        if (length >= ZPL_MAX_ELEMENTS) return nullptr;
+        return &elements[length++];
+    }
 
     void clear() {
         error = 0;
@@ -488,14 +497,14 @@ public:
         barcode_awaiting_text = -1;
     }
 
-    bool push(ZPL_element element) {
-        if (length >= ZPL_MAX_ELEMENTS) return false;
-        element.index = length;
-        // element.print(); // Debug
-        if (element.barcode) barcode_awaiting_text = length;
-        elements[length++] = element;
-        return true;
-    }
+    // bool push(ZPL_element element) {
+    //     if (length >= ZPL_MAX_ELEMENTS) return false;
+    //     element.index = length;
+    //     // element.print(); // Debug
+    //     if (element.barcode) barcode_awaiting_text = length;
+    //     elements[length++] = element;
+    //     return true;
+    // }
     void print() {
         printf("    Label with %d elements\n", length);
         for (int i = 0; i < length; i++) {
@@ -554,6 +563,7 @@ ZPL_CMD nextCommand(const char* str, int len) {
     if (startsWith(str, "PW")) return PW;
     if (startsWith(str, "LL")) return LL;
     if (startsWith(str, "PQ")) return PQ;
+    if (startsWith(str, "SN")) return SN;
     if (startsWith(str, "FO")) return FO;
     if (startsWith(str, "FR")) return FR;
     if (startsWith(str, "GB")) return GB;
@@ -703,6 +713,7 @@ char* lineAt(const char* str, int length, int index, int* offset = nullptr, int*
 
 #define ZPL_NEXT(count) { idx += count; c += count; parsed += count; }
 #define ZPL_THROW(cmp, ...) { if (cmp) {label.errorObj = __VA_ARGS__; label.error = label.errorObj.error; label.message = label.errorObj.message; label.line = label.errorObj.line; label.column = label.errorObj.column; return &label; } else { ZPL_NEXT(err.parsed); } }
+#define ZPL_VEFIRY_ELEMENT(element) { if (!element) { label.error = 1; label.message = "Too many elements"; return &label; } }
 
 #define Z_REQUIRED true
 #define Z_OPTIONAL false
@@ -771,43 +782,43 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
         switch (cmd) {
             case XA: {
                 reading = true;
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
             } break;
             case XZ: {
                 reading = false;
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
             } break;
             case CC: {
                 // ^CC/
                 char character = c[0];
                 caret = character;
                 ZPL_NEXT(1);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.character = character;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->character = character;
             } break;
             case CD: {
                 // ^CD;
                 char character = c[0];
                 delimiter = character;
                 ZPL_NEXT(1);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.character = character;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->character = character;
             } break;
 
             case CF: {
@@ -815,39 +826,39 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 char font = '0';
                 ZPL_PARSE_CHAR(font, Z_OPTIONAL);
                 ZPL_PARSE_NUMBER(state.font_size, Z_OPTIONAL);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
                 if (font >= '0' && font <= '3') state.font_type = font - '0';
                 if (font >= 'A') state.font_type = font - 'A' + 1;
-                element.font_type = state.font_type;
-                element.font_size = state.font_size;
-                label.push(element);
+                element->font_type = state.font_type;
+                element->font_size = state.font_size;
             } break;
 
             case PW: {
                 // ^PW800
                 ZPL_PARSE_NUMBER(width, Z_REQUIRED);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.width = width;
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->width = width;
                 label.label_width_parm = width;
-                label.push(element);
             } break;
 
             case LL: {
                 // ^LL800
                 ZPL_PARSE_NUMBER(height, Z_REQUIRED);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.height = height;
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->height = height;
                 label.label_height_parm = height;
-                label.push(element);
             } break;
 
             case PQ: {
@@ -855,35 +866,55 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 int copies = 1;
                 ZPL_PARSE_NUMBER(copies, Z_REQUIRED);
                 if (copies < 1) copies = 1;
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.x = copies;
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->x = copies;
                 label.copies = copies;
-                label.push(element);
             } break;
+
+            case SN: {
+                // ^SN0001,1,Y
+                char* temp = (char*) malloc(ZPL_MAX_STRING);
+                ZPL_PARSE_STRING(temp, Z_REQUIRED, WITHOUT_DELIMITER);
+                int increment = 1;
+                ZPL_PARSE_NUMBER(increment, Z_OPTIONAL);
+                char* temp2 = (char*) malloc(16);
+                ZPL_PARSE_CHAR(temp2[0], Z_OPTIONAL);
+                bool pad = temp2[0] == 'Y';
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->text = temp;
+                element->increment = increment;
+                element->padding = pad;
+            } break;
+
             case FO: {
                 // ^FO10,10
                 ZPL_PARSE_NUMBER(x, Z_REQUIRED);
                 ZPL_PARSE_NUMBER(y, Z_REQUIRED);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.x = x;
-                element.y = y;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->x = x;
+                element->y = y;
             } break;
             case FR: {
                 // ^FR
                 inverted = true;
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.inverted = inverted;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->inverted = inverted;
             } break;
 
             case GB: {
@@ -897,20 +928,20 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITHOUT_DELIMITER);
                 if (temp[0] == 'B' || temp[0] == 'W') color = temp[0];
                 ZPL_PARSE_NUMBER(radius, Z_OPTIONAL);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.x = x;
-                element.y = y;
-                element.width = width;
-                element.height = height;
-                element.inset = inset;
-                element.radius = radius;
-                element.color = color;
-                element.inverted = inverted;
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->x = x;
+                element->y = y;
+                element->width = width;
+                element->height = height;
+                element->inset = inset;
+                element->radius = radius;
+                element->color = color;
+                element->inverted = inverted;
                 state.reset();
-                label.push(element);
             } break;
 
             case FD: {
@@ -926,18 +957,18 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                     // bc.color = color;
                     label.barcode_awaiting_text = -1;
                 } else {
-                    ZPL_element element = {};
-                    element.str = substring(c0, 0, parsed);
-                    element.len = parsed;
-                    element.type = cmd;
-                    element.x = x;
-                    element.y = y;
-                    element.text = temp;
-                    element.color = color;
-                    element.inverted = inverted;
-                    element.font_type = state.font_type;
-                    element.font_size = state.font_size;
-                    label.push(element);
+                    ZPL_element* element = label.nextElement();
+                    ZPL_VEFIRY_ELEMENT(element);
+                    element->str = substring(c0, 0, parsed);
+                    element->len = parsed;
+                    element->type = cmd;
+                    element->x = x;
+                    element->y = y;
+                    element->text = temp;
+                    element->color = color;
+                    element->inverted = inverted;
+                    element->font_type = state.font_type;
+                    element->font_size = state.font_size;
                 }
                 state.reset();
             } break;
@@ -946,12 +977,12 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 // Only store the text
                 char* temp = (char*) malloc(ZPL_MAX_STRING);
                 ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITH_DELIMITER);
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.text = temp;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->text = temp;
             }
             case FS: {
                 // ^FS
@@ -967,56 +998,58 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 
             case B3: {
                 // ^B3N,N,70,N,N^FD852934^FS
-                ZPL_element element = {};
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
 
-                element.barcode_width = state.barcode_width;
-                element.barcode_height = state.barcode_height;
-                element.barcode_wn_ratio = state.barcode_wn_ratio;
+                element->barcode_width = state.barcode_width;
+                element->barcode_height = state.barcode_height;
+                element->barcode_wn_ratio = state.barcode_wn_ratio;
 
-                element.orientation = 'N';
-                element.check = 'N';
-                element.interpretation = 'N';
-                element.interpretation_above = 'N';
+                element->orientation = 'N';
+                element->check = 'N';
+                element->interpretation = 'N';
+                element->interpretation_above = 'N';
 
-                ZPL_PARSE_CHAR(element.orientation, Z_OPTIONAL); // N = normal, R = rotated 90 degrees clockwise, I = inverted 180 degrees, B = bottom up 180 degrees
-                ZPL_PARSE_CHAR(element.check, Z_OPTIONAL); // N = no check digit, Y = check digit
-                ZPL_PARSE_NUMBER(element.barcode_height, Z_OPTIONAL); // Height of the barcode in dots
-                ZPL_PARSE_CHAR(element.interpretation, Z_OPTIONAL); // N = no interpretation line, Y = interpretation line
-                ZPL_PARSE_CHAR(element.interpretation_above, Z_OPTIONAL); // N = no interpretation line above the barcode, Y = interpretation line above the barcode
+                ZPL_PARSE_CHAR(element->orientation, Z_OPTIONAL); // N = normal, R = rotated 90 degrees clockwise, I = inverted 180 degrees, B = bottom up 180 degrees
+                ZPL_PARSE_CHAR(element->check, Z_OPTIONAL); // N = no check digit, Y = check digit
+                ZPL_PARSE_NUMBER(element->barcode_height, Z_OPTIONAL); // Height of the barcode in dots
+                ZPL_PARSE_CHAR(element->interpretation, Z_OPTIONAL); // N = no interpretation line, Y = interpretation line
+                ZPL_PARSE_CHAR(element->interpretation_above, Z_OPTIONAL); // N = no interpretation line above the barcode, Y = interpretation line above the barcode
 
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.barcode = true;
-                label.push(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->barcode = true;
+                label.barcode_awaiting_text = label.length - 1;
             } break;
 
             case BC: {
                 // ^BCN,70,N,N^FD852934^FS
-                ZPL_element element = {};
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
 
-                element.barcode_width = state.barcode_width;
-                element.barcode_height = state.barcode_height;
-                element.barcode_wn_ratio = state.barcode_wn_ratio;
+                element->barcode_width = state.barcode_width;
+                element->barcode_height = state.barcode_height;
+                element->barcode_wn_ratio = state.barcode_wn_ratio;
 
-                element.orientation = 'N';
-                element.check = 'N';
-                element.interpretation = 'N';
-                element.interpretation_above = 'N';
-                element.mode = 'N';
+                element->orientation = 'N';
+                element->check = 'N';
+                element->interpretation = 'N';
+                element->interpretation_above = 'N';
+                element->mode = 'N';
 
-                ZPL_PARSE_CHAR(element.orientation, Z_OPTIONAL); // N = normal, R = rotated 90 degrees clockwise, I = inverted 180 degrees, B = bottom up 180 degrees
-                ZPL_PARSE_NUMBER(element.barcode_height, Z_OPTIONAL); // Height of the barcode in dots
-                ZPL_PARSE_CHAR(element.interpretation, Z_OPTIONAL); // N = no interpretation line, Y = interpretation line
-                ZPL_PARSE_CHAR(element.interpretation_above, Z_OPTIONAL); // N = no interpretation line above the barcode, Y = interpretation line above the barcode
-                ZPL_PARSE_CHAR(element.check, Z_OPTIONAL); // N = no check digit, Y = check digit
-                ZPL_PARSE_CHAR(element.mode, Z_OPTIONAL); // To be implemented
+                ZPL_PARSE_CHAR(element->orientation, Z_OPTIONAL); // N = normal, R = rotated 90 degrees clockwise, I = inverted 180 degrees, B = bottom up 180 degrees
+                ZPL_PARSE_NUMBER(element->barcode_height, Z_OPTIONAL); // Height of the barcode in dots
+                ZPL_PARSE_CHAR(element->interpretation, Z_OPTIONAL); // N = no interpretation line, Y = interpretation line
+                ZPL_PARSE_CHAR(element->interpretation_above, Z_OPTIONAL); // N = no interpretation line above the barcode, Y = interpretation line above the barcode
+                ZPL_PARSE_CHAR(element->check, Z_OPTIONAL); // N = no check digit, Y = check digit
+                ZPL_PARSE_CHAR(element->mode, Z_OPTIONAL); // To be implemented
 
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.barcode = true;
-                label.push(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->barcode = true;
+                label.barcode_awaiting_text = label.length - 1;
             } break;
 
             case GF: {
@@ -1043,24 +1076,24 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                     label.idx = idx + rle_parser.idx;
                     return &label;
                 }
-                ZPL_element element = {};
-                // element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                element.x = x;
-                element.y = y;
-                element.width = rle_parser.width;
-                element.height = rle_parser.height;
-                element.halfbytes = rle_parser.half_byte_pixels;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                // element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
+                element->x = x;
+                element->y = y;
+                element->width = rle_parser.width;
+                element->height = rle_parser.height;
+                element->halfbytes = rle_parser.half_byte_pixels;
             } break;
 
             default: {
-                ZPL_element element = {};
-                element.str = substring(c0, 0, parsed);
-                element.len = parsed;
-                element.type = cmd;
-                label.push(element);
+                ZPL_element* element = label.nextElement();
+                ZPL_VEFIRY_ELEMENT(element);
+                element->str = substring(c0, 0, parsed);
+                element->len = parsed;
+                element->type = cmd;
             } break;
         }
     }
@@ -1077,7 +1110,7 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 Image temp_image = Image(0, 0, WHITE);
 int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int height, int dpi, PNG_ENCODER compression, bool debug = false) {
     if (zpl_text.empty()) {
-        printf("Empty ZPL text\n");
+        notifyf("Empty ZPL text\n");
         return 1;
     }
     // if (debug) timer.start("zpl2png total");
@@ -1085,12 +1118,12 @@ int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int
     ZPL_label* label_output = parse_zpl(zpl_text.c_str(), zpl_text.length()); // Decode ZPL
     if (debug) timer.log("Decode ZPL");
     if (!label_output) {
-        printf("Error parsing ZPL\n");
+        notifyf("Error parsing ZPL\n");
         return 2;
     }
     ZPL_label& label = label_output[0];
     if (label.error) {
-        printf("Error reading ZPL: %s\n", label.message);
+        notifyf("Error reading ZPL: %s\n", label.message);
         return 3;
     }
     if (debug) timer.start("Render ZPL to image");
@@ -1102,11 +1135,11 @@ int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int
     // std::vector<unsigned char>* png = image.toPNG(PE_FPNG); // Faster but less compression
     std::vector<unsigned char>* png = temp_image.toPNG(compression); // Compress the image to PNG
     if (png == nullptr) {
-        printf("Error converting image to PNG\n");
+        notifyf("Error converting image to PNG\n");
         return 4;
     }
     if (png->empty()) {
-        printf("Empty PNG data\n");
+        notifyf("Empty PNG data\n");
         return 5;
     }
     if (debug) timer.log("Compress image to PNG");

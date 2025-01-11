@@ -50,7 +50,7 @@ int main(int arg_c, char** arg_v) {
     timer.start("Total");
     size_t size = 0;
     timer.start("Loaded");
-    std::string zpl_sample = loadFile(zpl_file.c_str());
+    std::string zpl_input = loadFile(zpl_file.c_str());
     timer.log("Loaded");
 
 
@@ -66,15 +66,20 @@ int main(int arg_c, char** arg_v) {
             printf("#################################\n");
         }
 
-        std::vector<uint8_t> png;
-        int error = zpl2png(zpl_sample, png, width, height, 0, png_mode, true); // Faster but less compression
+        timer.start("Total_2");
 
-        timer.start("Saved");
-        // saveFile("output.png", (const char*) png->data(), size);
+        std::vector<uint8_t> png_output;
+        int error = zpl2png(zpl_input, png_output, width, height, 0, png_mode, true); // Faster but less compression
+
+        if (error) {
+            notifyf("Error converting ZPL to PNG: %d\n", error);
+            return 2;
+        }
+
         // Save to a file with the same name as the ZPL file but with a PNG extension
-        saveFile(png_full_path.c_str(), (const char*) png.data(), png.size());
-        size = png.size();
-        double saved = timer.time("Saved");
+        saveFile(png_full_path.c_str(), (const char*) png_output.data(), png_output.size());
+        size = png_output.size();
+        double saved = timer.time("Total_2");
         if (!once) printf("Total PNG: %.1f ms for %d bytes\n", saved * 1000.0, size);
     }
     double total = timer.time("Total");
