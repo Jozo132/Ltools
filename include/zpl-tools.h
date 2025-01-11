@@ -56,6 +56,9 @@ enum ZPL_CMD {
     XZ, // End Label
     CC, // Change Caret
     CD, // Change Delimiter
+    CF, // Change Font
+    PW, // Print Width in Dots
+    LL, // Label Length in Dots
     FO, // Field Origin
     FR, // Invert
     GB, // Graphic Box
@@ -65,7 +68,6 @@ enum ZPL_CMD {
     B3, // Barcode 39
     BC, // Barcode 128
     FX, // Comment
-    CF, // Change Font
     GF, // Graphic Field
 };
 
@@ -76,6 +78,9 @@ enum ZPL_CMD {
     "XZ", \
     "CC", \
     "CD", \
+    "CF", \
+    "PW", \
+    "LL", \
     "FO", \
     "FR", \
     "GB", \
@@ -84,7 +89,6 @@ enum ZPL_CMD {
     "BY", \
     "B3", \
     "FX", \
-    "CF", \
     "GF"
 
 const char* ZPL_CMD_NAMES [] = { ZPL_CMD_STRINGS };
@@ -136,6 +140,8 @@ struct ZPL_element {
             case CC: printf("        Change Caret: %c\n", character); break;
             case CD: printf("        Change Delimiter: %c\n", character); break;
             case CF: printf("        Font: %d, %d\n", font_type, font_size); break;
+            case PW: printf("        Print Width: %d\n", width); break;
+            case LL: printf("        Label Length: %d\n", height); break;
             case FO: printf("        Field Origin: %d, %d\n", x, y); break;
             case FX: printf("        Comment: %s\n", text); break;
             case FD: printf("        Text %d,%d: %s\n", font_type, font_size, text); break;
@@ -451,6 +457,9 @@ public:
     int column = 0;
     int idx = 0;
 
+    int label_width_parm = 0;
+    int label_height_parm = 0;
+
     ZPL_state state;
     ZPL_element elements[ZPL_MAX_ELEMENTS];
     int barcode_awaiting_text = -1;
@@ -491,7 +500,9 @@ public:
         }
     }
 
-    Image* draw(int width, int height) {
+    Image* draw(int width = 0, int height = 0) {
+        if (width == 0) width = label_width_parm;
+        if (height == 0) height = label_height_parm;
         if (width <= 0 || height <= 0) return &image;
         if (width != image.width || height != image.height) {
             image.resize(width, height, WHITE);
@@ -504,6 +515,9 @@ public:
     }
 
     void draw(Image& im) {
+        if (label_width_parm > 0 && label_height_parm > 0) {
+            im.resize(label_width_parm, label_height_parm, WHITE);
+        } 
         if (im.width <= 0 || im.height <= 0) return;
         for (int i = 0; i < length; i++) {
             ZPL_element& element = elements[i];
@@ -533,6 +547,8 @@ ZPL_CMD nextCommand(const char* str, int len) {
     if (startsWith(str, "CC")) return CC;
     if (startsWith(str, "CD")) return CD;
     if (startsWith(str, "CF")) return CF;
+    if (startsWith(str, "PW")) return PW;
+    if (startsWith(str, "LL")) return LL;
     if (startsWith(str, "FO")) return FO;
     if (startsWith(str, "FR")) return FR;
     if (startsWith(str, "GB")) return GB;
@@ -566,10 +582,10 @@ ZPL_parsing_error parseNumber(char caret, char delimiter, const char* str, int l
                 break;
             }
             if (str[i] == caret) break;
-            if (str[i] == '\t') break;
+            if (str[i] == '\t') continue;
             if (str[i] == '\r') break;
             if (str[i] == '\n') break;
-            if (str[i] == ' ') break;
+            if (str[i] == ' ') continue;
             return (ZPL_parsing_error) { i, 1, "Invalid number", 0, i };
         }
     }
@@ -805,6 +821,30 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
                 label.push(element);
             } break;
 
+            case PW: {
+                // ^PW800
+                ZPL_PARSE_NUMBER(width, Z_REQUIRED);
+                ZPL_element element = {};
+                element.str = substring(c0, 0, parsed);
+                element.len = parsed;
+                element.type = cmd;
+                element.width = width;
+                label.label_width_parm = width;
+                label.push(element);
+            } break;
+
+            case LL: {
+                // ^LL800
+                ZPL_PARSE_NUMBER(height, Z_REQUIRED);
+                ZPL_element element = {};
+                element.str = substring(c0, 0, parsed);
+                element.len = parsed;
+                element.type = cmd;
+                element.height = height;
+                label.label_height_parm = height;
+                label.push(element);
+            } break;
+
             case FO: {
                 // ^FO10,10
                 ZPL_PARSE_NUMBER(x, Z_REQUIRED);
@@ -1016,7 +1056,7 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 
 
 
-Image temp_image = Image(1, 1, WHITE);
+Image temp_image = Image(0, 0, WHITE);
 int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int height, int dpi, PNG_ENCODER compression, bool debug = false) {
     if (zpl_text.empty()) {
         printf("Empty ZPL text\n");
