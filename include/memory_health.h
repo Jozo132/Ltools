@@ -1,13 +1,13 @@
 #pragma once
 
 #include <iostream>
+#include <stdint.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <psapi.h>
 #endif
 
-int32_t previous_memory = 0;
 
 int32_t getHeapUsage() {
 #ifdef _WIN32
@@ -23,12 +23,13 @@ int32_t getHeapUsage() {
 #endif
 }
 
+int32_t previous_memory = 0;
 void printHeapUsage() {
     int32_t memory = getHeapUsage();
+    int32_t diff = memory - previous_memory;
     if (previous_memory == 0) {
         std::cout << "Heap usage: " << memory << " bytes\n";
     } else {
-        int32_t diff = memory - previous_memory;
         std::cout << "Heap usage: " << memory << " bytes (" << (diff > 0 ? "+" : "") << diff << ")\n";
     }
     previous_memory = memory;
