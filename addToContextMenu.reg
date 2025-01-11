@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\SystemFileAssociations\.zpl\shell\ZPLtoPNG]
+@="ZPL to PNG here"
+
+[HKEY_CLASSES_ROOT\SystemFileAssociations\.zpl\shell\ZPLtoPNG\command]
+@="\"C:\\Ltools\\zpl2png.exe\" -i \"%1\""
