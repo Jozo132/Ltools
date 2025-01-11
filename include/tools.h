@@ -204,8 +204,18 @@ int saveFile(const char* fileName, const char* data, int size) {
 	return 0;
 }
 
-double GetTime() {
-	const auto now = std::chrono::system_clock::now();
-	const auto duration = now.time_since_epoch();
-	return std::chrono::duration_cast<std::chrono::microseconds>(duration).count() * 0.000001;
+
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+void hide_console() {
+	#ifdef _WIN32
+		// Hide the console window in Windows
+		HWND hwnd = GetConsoleWindow();
+		if (hwnd != NULL) {
+			ShowWindow(hwnd, SW_HIDE);
+		}
+	#endif // _WIN32
 }
