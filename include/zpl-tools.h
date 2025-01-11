@@ -2,7 +2,8 @@
 
 #include "draw_utils.h"
 #include "barcodex.h"
-
+#include "imagex.h"
+#include "stopwatch.h"
 
 
 
@@ -650,7 +651,7 @@ int string_length(char* str) {
     return len;
 }
 
-char line_msg[256];
+char line_msg[1024];
 char* lineAt(const char* str, int length, int index, int* offset = nullptr, int* row = nullptr) {
     if (index < 0) return nullptr;
     if (index >= length) return nullptr;
@@ -680,7 +681,7 @@ char* lineAt(const char* str, int length, int index, int* offset = nullptr, int*
 }
 
 #define ZPL_NEXT(count) { idx += count; c += count; parsed += count; }
-#define ZPL_THROW(cmp, ...) { if (cmp) {label.errorObj = __VA_ARGS__; label.error = label.errorObj.error; label.message = label.errorObj.message; label.line = label.errorObj.line; label.column = label.errorObj.column; return label; } else { ZPL_NEXT(err.parsed); } }
+#define ZPL_THROW(cmp, ...) { if (cmp) {label.errorObj = __VA_ARGS__; label.error = label.errorObj.error; label.message = label.errorObj.message; label.line = label.errorObj.line; label.column = label.errorObj.column; return &label; } else { ZPL_NEXT(err.parsed); } }
 
 #define Z_REQUIRED true
 #define Z_OPTIONAL false
@@ -700,8 +701,9 @@ ZPL_parsing_error skipDelimiter(char delimiter, const char* str, bool required =
     return (ZPL_parsing_error) { 0, 0, "", 0, 0 };
 }
 
-ZPL_label parse_zpl(const char* zpl_text, int zpl_len) {
-    ZPL_label label;
+ZPL_label label;
+ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
+    label.clear();
     auto& idx = label.idx;
     auto& state = label.state;
     auto& caret = state.caret;
@@ -965,7 +967,7 @@ ZPL_label parse_zpl(const char* zpl_text, int zpl_len) {
                 if (type != 'A') {
                     label.error = 1;
                     label.message = "Only type A is supported for graphic fields";
-                    return label;
+                    return &label;
                 }
                 ZPL_NEXT(2);
                 int temp = 0;
@@ -981,7 +983,7 @@ ZPL_label parse_zpl(const char* zpl_text, int zpl_len) {
                     label.error = 1;
                     label.message = rle_parser.message;
                     label.idx = idx + rle_parser.idx;
-                    return label;
+                    return &label;
                 }
                 ZPL_element element = {};
                 // element.str = substring(c0, 0, parsed);
@@ -1005,5 +1007,53 @@ ZPL_label parse_zpl(const char* zpl_text, int zpl_len) {
         }
     }
 
-    return label;
+    return &label;
+}
+
+
+
+
+
+
+
+Image temp_image = Image(1, 1, WHITE);
+int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int height, int dpi, PNG_ENCODER compression, bool debug = false) {
+    if (zpl_text.empty()) {
+        printf("Empty ZPL text\n");
+        return 1;
+    }
+    // if (debug) timer.start("zpl2png total");
+    if (debug) timer.start("Decode ZPL");
+    ZPL_label* label_output = parse_zpl(zpl_text.c_str(), zpl_text.length()); // Decode ZPL
+    if (debug) timer.log("Decode ZPL");
+    if (!label_output) {
+        printf("Error parsing ZPL\n");
+        return 2;
+    }
+    ZPL_label& label = label_output[0];
+    if (label.error) {
+        printf("Error reading ZPL: %s\n", label.message);
+        return 3;
+    }
+    if (debug) timer.start("Render ZPL to image");
+    temp_image.resize(width, height, WHITE);
+    label.draw(temp_image); // Render ZPL to image
+    if (debug) timer.log("Render ZPL to image");
+    if (debug) timer.start("Compress image to PNG");
+    // std::vector<unsigned char>* png = image.toPNG(PE_LODEPNG); // Slower but better compression
+    // std::vector<unsigned char>* png = image.toPNG(PE_FPNG); // Faster but less compression
+    std::vector<unsigned char>* png = temp_image.toPNG(compression); // Compress the image to PNG
+    if (png == nullptr) {
+        printf("Error converting image to PNG\n");
+        return 4;
+    }
+    if (png->empty()) {
+        printf("Empty PNG data\n");
+        return 5;
+    }
+    if (debug) timer.log("Compress image to PNG");
+    png_data.clear();
+    png_data.insert(png_data.end(), png->begin(), png->end()); // Copy the PNG data to the output vector
+    // if (debug) timer.log("zpl2png total");
+    return 0;
 }
