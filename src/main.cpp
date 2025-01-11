@@ -11,17 +11,32 @@ int main(int arg_c, char** arg_v) {
     for (int arg_i = 1; arg_i < arg_c; arg_i++) {
         std::string arg = arg_v[arg_i];
         // Handle '-f' for fast PNG encoding and '-s' for small PNG size
-        if (arg == "-f") png_mode = PE_FPNG; // faster PNG encoding
-        if (arg == "-s") png_mode = PE_LODEPNG; // smaller PNG size
-        if (arg == "-t") once = false; // run multiple times
+        if (arg == "-f") {
+            png_mode = PE_FPNG; // faster PNG encoding
+            continue;
+        }
+        if (arg == "-s") {
+            png_mode = PE_LODEPNG; // smaller PNG size
+            continue;
+        }
+        if (arg == "-t") {
+            once = false; // run multiple times
+            continue;
+        }
         // Handle '-i <file>' for input file
         if (arg == "-i" && arg_i + 1 < arg_c) {
             zpl_full_path = arg_v[arg_i + 1];
+            continue;
+        }
+        // Handle "<file>" for input without '-' prefix
+        if (zpl_full_path.empty() && arg[0] != '-') {
+            zpl_full_path = arg;
+            continue;
         }
     }
 
     if (zpl_full_path.empty()) {
-        printf("No ZPL file specified\n");
+        notify("No ZPL file specified\n");
         printf("Usage: zpl2png -i <file> [-f] [-s] [-t]\n");
         printf("  -i <file>  ZPL file to convert to PNG\n");
         printf("  -f         Use fast PNG encoding (default is small PNG size)\n");
