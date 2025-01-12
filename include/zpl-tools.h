@@ -974,6 +974,7 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
             case FS: {
                 // ^FS
                 state.reset();
+                temp[0] = '\0'; // Reset the temporary string
             } break;
 
             case BY: {
