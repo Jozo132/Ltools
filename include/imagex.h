@@ -211,10 +211,14 @@ public:
         int fill_inversion = 255 - fill_hue;
         int stroke_hue = inverted ? stroke.getHue() : 255;
         int stroke_inversion = 255 - stroke_hue;
+        int x1 = x;
+        int x2 = x + w;
+        int y1 = y;
+        int y2 = y + h;
         if (!fill.isBlank()) {
-            for (int iy = y; iy < y + h; iy++) {
-                for (int ix = x; ix < x + w; ix++) {
-                    if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
+            for (int iy = y1; iy < y2; iy++) {
+                for (int ix = x1; ix < x2; ix++) {
+                    if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue; // Skip out of image bounds
                     if (inverted) {
                         invertPixel(ix, iy, fill_inversion);
                     } else {
@@ -228,19 +232,24 @@ public:
             }
         }
         if (!stroke.isBlank()) {
-            for (int iy = y; iy < y + h; iy++) {
-                for (int ix = x; ix < x + w; ix++) {
-                    if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
-                    if (ix < x + stroke_width || ix >= x + w - stroke_width || iy < y + stroke_width || iy >= y + h - stroke_width) {
-                        if (inverted) {
-                            invertPixel(ix, iy, stroke_inversion);
-                        } else {
-                            size_t idx = 4 * (iy * width + ix);
-                            data[idx] = stroke.r;
-                            data[idx + 1] = stroke.g;
-                            data[idx + 2] = stroke.b;
-                            data[idx + 3] = stroke.a;
-                        }
+            int pad_left = x1 + stroke_width;
+            int pad_right = x2 - stroke_width;
+            int pad_top = y1 + stroke_width;
+            int pad_bottom = y2 - stroke_width;
+            for (int iy = y1; iy < y2; iy++) {
+                for (int ix = x1; ix < x2; ix++) {
+                    if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue; // Skip out of image bounds
+
+                    if (ix >= pad_left && ix < pad_right && iy >= pad_top && iy < pad_bottom) continue; // Skip inside of the stroke
+
+                    if (inverted) {
+                        invertPixel(ix, iy, stroke_inversion);
+                    } else {
+                        size_t idx = 4 * (iy * width + ix);
+                        data[idx] = stroke.r;
+                        data[idx + 1] = stroke.g;
+                        data[idx + 2] = stroke.b;
+                        data[idx + 3] = stroke.a;
                     }
                 }
             }
@@ -394,24 +403,91 @@ public:
     }
 
     void drawRoundedRectangle(int x, int y, int w, int h, float roundness, int stroke_width, Color stroke, Color fill, bool inverted = false) {
-        if (roundness <= 0) {
-            return drawRect(x, y, w, h, stroke_width, stroke, fill, inverted);
-        }
+        if (roundness <= 0) return drawRect(x, y, w, h, stroke_width, stroke, fill, inverted);
         int fill_hue = inverted ? fill.getHue() : 255;
         int fill_inversion = 255 - fill_hue;
         int stroke_hue = inverted ? stroke.getHue() : 255;
         int stroke_inversion = 255 - stroke_hue;
         if (roundness > 1) roundness = 1;
         int radius = roundness * std::min(w, h) / 2;
-        if (!fill.isBlank()) {
-            for (int iy = y; iy < y + h; iy++) {
-                for (int ix = x; ix < x + w; ix++) {
-                    if (ix < x + radius || ix >= x + w - radius || iy < y + radius || iy >= y + h - radius) {
-                        if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
+        int rx1 = x + radius; // Center of the top-left rounded corner (x)
+        int ry1 = y + radius; // Center of the top-left rounded corner (y)
+        int rx2 = x + w - radius; // Center of the top-right rounded corner (x)
+        int ry2 = ry1; // Center of the top-right rounded corner (y)
+        int rx3 = rx2; // Center of the bottom-right rounded corner (x)
+        int ry3 = y + h - radius; // Center of the bottom-right rounded corner (y)
+        int rx4 = rx1; // Center of the bottom-left rounded corner (x)
+        int ry4 = ry3; // Center of the bottom-left rounded corner (y)
+        float r = radius;
+        // Draw the top left quarter of the rounded rectangle and mirror the pixels to the other three quarters
+        int x_odd = w % 2;
+        int y_odd = h % 2;
+
+        int xL = x; // Left
+        int xM = x + w / 2 + x_odd; // Middle
+        int xR = x + w - 1; // Right
+
+        int yT = y; // Top
+        int yM = y + h / 2 + y_odd; // Middle
+        int yB = y + h - 1; // Bottom
+
+        int x_pos = 0;
+        int y_pos = 0;
+
+        bool doInfill = !fill.isBlank();
+        bool doStroke = !stroke.isBlank();
+
+        if (doInfill) {
+            for (int iy = yT, y_pos = 0; iy < yM; iy++, y_pos++) {
+                bool visible = 0;
+                bool y_last = iy == yM - 1;
+                for (int ix = xL, x_pos = 0; ix < xM; ix++, x_pos++) {
+                    bool x_last = ix == xM - 1;
+                    bool top_left = (ix < rx1 && iy < ry1);
+                    bool in_rect = !top_left;
+
+                    if (top_left) {
+                        // Get the distance from the center of the rounded corner
+                        float dx = ix - rx1;
+                        float dy = iy - ry1;
+                        float dx2 = dx * dx;
+                        float dy2 = dy * dy;
+                        float dr = sqrtf(dx2 + dy2);
+                        float delta = dr - r;
+                        visible = delta <= 0;
+                    }
+                    if (in_rect) visible = true;
+
+                    // Test
+                    // visible = top_left || top_right || bottom_right || bottom_left;
+
+                    if (!visible) continue;
+
+                    int ix_mirror = xR - x_pos;
+                    int iy_mirror = yB - y_pos;
+                    for (int i = 0; i < 4; i++) {
+                        int x = ix;
+                        int y = iy;
+
+                        if (i == 1) { // Top right
+                            if (x_last && x_odd) continue;
+                            x = ix_mirror;
+                        }
+                        if (i == 2) { // Bottom right
+                            if (x_last && x_odd) continue;
+                            if (y_last && y_odd) continue;
+                            x = ix_mirror;
+                            y = iy_mirror;
+                        }
+                        if (i == 3) { // Bottom left
+                            if (y_last && y_odd) continue;
+                            y = iy_mirror;
+                        }
+
                         if (inverted) {
-                            invertPixel(ix, iy, fill_inversion);
+                            invertPixel(x, y, fill_inversion);
                         } else {
-                            size_t idx = 4 * (iy * width + ix);
+                            size_t idx = 4 * (y * width + x);
                             data[idx] = fill.r;
                             data[idx + 1] = fill.g;
                             data[idx + 2] = fill.b;
@@ -420,26 +496,70 @@ public:
                     }
                 }
             }
+            return;
         }
-        if (!stroke.isBlank()) {
-            for (int ix = x + radius; ix < x + w - radius; ix++) {
-                if (ix < 0 || y < 0 || ix >= width || y >= height) continue;
-                if (inverted) {
-                    invertPixel(ix, y, stroke_inversion);
-                } else {
-                    size_t idx = 4 * (y * width + ix);
-                    data[idx] = stroke.r;
-                    data[idx + 1] = stroke.g;
-                    data[idx + 2] = stroke.b;
-                    data[idx + 3] = stroke.a;
+        if (doStroke) {
+            for (int iy = yT, y_pos = 0; iy < yM; iy++, y_pos++) {
+                bool visible = 0;
+                bool y_last = iy == yM - 1;
+                for (int ix = xL, x_pos = 0; ix < xM; ix++, x_pos++) {
+                    bool x_last = ix == xM - 1;
+                    bool top_left = (ix < rx1 && iy < ry1);
+                    bool in_rect = !top_left;
+
+                    if (top_left) {
+                        // Get the distance from the center of the rounded corner
+                        float dx = ix - rx1;
+                        float dy = iy - ry1;
+                        float dx2 = dx * dx;
+                        float dy2 = dy * dy;
+                        float dr = sqrtf(dx2 + dy2);
+                        float delta = dr - r;
+                        visible = delta <= 0 && delta >= -stroke_width;
+                    }
+                    if (in_rect) {
+                        // Draw edge lines with a stroke width
+                        bool left = ix < (xL + stroke_width);
+                        bool top = iy < (yT + stroke_width);
+                        visible = left || top;
+                    }
+
+                    if (!visible) continue;
+
+                    int ix_mirror = xR - x_pos;
+                    int iy_mirror = yB - y_pos;
+                    for (int i = 0; i < 4; i++) {
+                        int x = ix;
+                        int y = iy;
+
+                        if (i == 1) { // Top right
+                            if (x_last && x_odd) continue;
+                            x = ix_mirror;
+                        }
+                        if (i == 2) { // Bottom right
+                            if (x_last && x_odd) continue;
+                            if (y_last && y_odd) continue;
+                            x = ix_mirror;
+                            y = iy_mirror;
+                        }
+                        if (i == 3) { // Bottom left
+                            if (y_last && y_odd) continue;
+                            y = iy_mirror;
+                        }
+
+                        if (inverted) {
+                            invertPixel(x, y, stroke_inversion);
+                        } else {
+                            size_t idx = 4 * (y * width + x);
+                            data[idx] = stroke.r;
+                            data[idx + 1] = stroke.g;
+                            data[idx + 2] = stroke.b;
+                            data[idx + 3] = stroke.a;
+                        }
+                    }
                 }
             }
         }
-
-        drawArc(Vector2{ (float) (x + radius), (float) (y + radius) }, radius, 180, 270, stroke_width, stroke, fill, inverted);
-        drawArc(Vector2{ (float) (x + w - radius), (float) (y + radius) }, radius, 270, 360, stroke_width, stroke, fill, inverted);
-        drawArc(Vector2{ (float) (x + w - radius), (float) (y + h - radius) }, radius, 0, 90, stroke_width, stroke, fill, inverted);
-        drawArc(Vector2{ (float) (x + radius), (float) (y + h - radius) }, radius, 90, 180, stroke_width, stroke, fill, inverted);
     }
 
 };

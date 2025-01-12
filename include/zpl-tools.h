@@ -173,18 +173,14 @@ struct ZPL_element {
                 float shortHalf = width < height ? width / 2 : height / 2;
                 bool full = inset >= shortHalf;
                 const Color stroke = color == 'W' ? WHITE : BLACK;
-                if (full) {
                     float ix = x;
                     float iy = y;
                     float iw = width;
                     float ih = height;
+                if (full) {
                     // ImageDrawRectangleRounded(image, (Rectangle) { ix, iy, iw, ih }, roundness, 128, stroke);
                     image->drawRoundedRectangle(ix, iy, iw, ih, roundness, 0, BLANK, stroke, inverted);
                 } else {
-                    float ix = x;
-                    float iy = y;
-                    float iw = width;
-                    float ih = height;
                     // ImageDrawRectangleRoundedLinesEx(image, (Rectangle) { ix, iy, iw, ih }, roundness, 128, inset, stroke);
                     image->drawRoundedRectangle(ix, iy, iw, ih, roundness, inset, stroke, BLANK, inverted);
                 }
