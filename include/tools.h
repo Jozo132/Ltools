@@ -209,6 +209,24 @@ typedef struct {
 } cmap;
 
 
+
+int getFiles(std::vector<std::string>* files, const char* directory, const char* extension) {
+	if (!files) return 1;
+#ifdef _WIN32
+	WIN32_FIND_DATAA findFileData;
+	HANDLE hFind = FindFirstFileA((std::string(directory) + "/*" + extension).c_str(), &findFileData);
+	if (hFind == INVALID_HANDLE_VALUE) {
+		notifyf("No files found in %s\n", directory);
+		return 2;
+	}
+	do {
+		files->push_back(findFileData.cFileName);
+	} while (FindNextFileA(hFind, &findFileData));
+	FindClose(hFind);
+#endif // _WIN32
+	return 0;
+}
+
 char* loadFile(const char* fileName) {
 	char* text = NULL;
 	FILE* file = fopen(fileName, "rt");
