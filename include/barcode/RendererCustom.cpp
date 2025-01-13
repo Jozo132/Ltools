@@ -20,8 +20,8 @@
 
 #include "RendererCustom.h"
 
-#include "Version.h"
-#include "Renderer.h"
+#include "glbarcode/Version.h"
+#include "glbarcode/Renderer.h"
 
 
 using namespace glbarcode::Version;

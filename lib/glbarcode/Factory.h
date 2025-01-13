@@ -103,7 +103,6 @@ namespace glbarcode
 		static TypeIdList getSupportedTypes( void );
 
 
-	private:
 		/**
 		 * Internal register barcode type ID.
 		 *
@@ -113,6 +112,7 @@ namespace glbarcode
 		static void internalRegisterType( const std::string& typeId, BarcodeCreateFct fct );
 
 
+	private:
 		/**
 		 * Map barcode type strings to creation functions.
 		 */

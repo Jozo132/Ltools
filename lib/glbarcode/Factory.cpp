@@ -22,7 +22,6 @@
 
 #include "BarcodeCode39.h"
 #include "BarcodeCode39Ext.h"
-#include "BarcodeCode128.h"
 #include "BarcodeUpcA.h"
 #include "BarcodeEan13.h"
 #include "BarcodePostnet.h"
@@ -49,7 +48,6 @@ namespace glbarcode
 		 */
 		internalRegisterType( "code39",      &BarcodeCode39::create );
 		internalRegisterType( "code39ext",   &BarcodeCode39Ext::create );
-		internalRegisterType( "code128",     &BarcodeCode128::create );
 		internalRegisterType( "upc-a",       &BarcodeUpcA::create );
 		internalRegisterType( "ean-13",      &BarcodeEan13::create );
 		internalRegisterType( "postnet",     &BarcodePostnet::create );

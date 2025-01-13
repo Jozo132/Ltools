@@ -2,11 +2,13 @@
 #pragma once
 
 #define WEIRD_CPP_IMPORT
+// #define HAVE_QRENCODE 1
 
 #include "imagex.h"
 #include "draw_utils.h"
+#include "./barcode/BarcodeCode128.h"
+#include "./barcode/RendererCustom.h"
 #include "../lib/glbarcode/Factory.h"
-#include "../lib/glbarcode/RendererCustom.h"
 
 using namespace glbarcode;
 
@@ -121,7 +123,7 @@ void ImageDrawBarcode_Code39(Image* image, const char* text, int x, int y, int h
         return;
     }
     // Create barcode object
-    Barcode* bc = Factory::createBarcode("code39");
+    Barcode* bc = BarcodeCode39::create();
     if (!bc) {
         notifyf("Error: Barcode is undefined\n");
         return;
@@ -155,7 +157,7 @@ void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int 
         return;
     }
     // Create barcode object
-    Barcode* bc = Factory::createBarcode("code128");
+    Barcode* bc = BarcodeCode128::create();
     if (!bc) {
         notifyf("Error: Barcode is undefined\n");
         return;

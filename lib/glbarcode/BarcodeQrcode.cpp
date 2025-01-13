@@ -24,7 +24,7 @@
 #if HAVE_QRENCODE
 
 
-#include "../libqrencode/qrencode.h"
+#include "qrencode/qrencode.h"
 
 
 namespace glbarcode

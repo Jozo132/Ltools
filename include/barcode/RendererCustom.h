@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Renderer.h"
+#include "glbarcode/Renderer.h"
 
 namespace glbarcode {
 	class RendererCustom : public Renderer {

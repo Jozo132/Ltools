@@ -52,6 +52,7 @@
         "cinttypes": "cpp",
         "condition_variable": "cpp",
         "mutex": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "string_view": "cpp"
     }
 }

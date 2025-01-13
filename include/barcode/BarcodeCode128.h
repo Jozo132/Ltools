@@ -21,7 +21,7 @@
 #pragma once
 
 
-#include "Barcode1dBase.h"
+#include "glbarcode/Barcode1dBase.h"
 
 
 namespace glbarcode {
