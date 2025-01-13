@@ -1,7 +1,7 @@
 # Compiler and flags
 CXX := g++
 # CXXFLAGS := -std=c++11 -Wall -Iinclude -march=native -mpclmul -maes
-CXXFLAGS := -MD -std=c++11 -Iinclude -lfreetype -march=native -mpclmul -maes -lpsapi
+CXXFLAGS := -MD -std=c++11 -Iinclude -Ilib -lfreetype -march=native -mpclmul -maes -lpsapi
 LDFLAGS := -Llib -lfreetype -lpsapi
 LDLIBS := # Add any libraries here
 
