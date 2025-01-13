@@ -236,7 +236,7 @@ struct ZPL_element {
             case BC: {
                 // orientation
                 // bool checksum = check == 'Y'; // Unused
-                bool show = interpretation == 'Y';
+                bool show = interpretation != 'N';
                 int h = barcode_height;
                 int w = barcode_width;
                 // interpretation_above
@@ -959,7 +959,7 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 
                 element->orientation = 'N';
                 element->check = 'N';
-                element->interpretation = 'N';
+                element->interpretation = 'Y';
                 element->interpretation_above = 'N';
 
                 ZPL_PARSE_CHAR(element->orientation, Z_OPTIONAL); // N = normal, R = rotated 90 degrees clockwise, I = inverted 180 degrees, B = bottom up 180 degrees
@@ -986,7 +986,7 @@ ZPL_label* parse_zpl(const char* zpl_text, int zpl_len) {
 
                 element->orientation = 'N';
                 element->check = 'N';
-                element->interpretation = 'N';
+                element->interpretation = 'Y';
                 element->interpretation_above = 'N';
                 element->mode = 'N';
 
