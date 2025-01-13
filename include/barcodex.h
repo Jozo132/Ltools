@@ -60,13 +60,11 @@ void barcode_drawText(double x, double y, double size, const char* text) {
     float ix = x * rst.scale_x + rst.x;
     float iy = y * rst.scale_y + rst.y;
     int is = size * rst.scale_x;
-//     Font* font_ptr = fontx.getFont("Helvetica", is);
-//     if (font_ptr == nullptr) return; // Font not found
-//     Font& font = font_ptr[0];
 // #ifdef DEBUG_DRAWING
 //     printf("Drawing text at %f, %f with size %f and text %s\n", ix, iy, is, text);
 // #endif
-//     ImageDrawTextEx(rst.image, font, text, (Vector2) { ix, iy }, (float) is, 0, BLACK);
+    rst.image->drawText(ix, iy, is, text, "OCR-B", BLACK, rst.inverted);
+    // rst.image->drawText(ix, iy, is, text, "Helvetica", BLACK, rst.inverted);
 }
 
 void barcode_drawRing(double x, double y, double r, double w) {

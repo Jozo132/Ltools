@@ -191,11 +191,12 @@ struct ZPL_element {
                 float iy = y;
                 const Color stroke = color == 'W' ? WHITE : BLACK;
                 bool font_found = true;
+                std::string font_name = "Helvetica";
                 switch (font_type) {
-                    case 0: FontLib.setFont("Helvetica", font_size); break;
-                    case 1: FontLib.setFont("OCR-A", font_size); break;
-                    case 2: FontLib.setFont("OCR-B", font_size); break;
-                    case 3: FontLib.setFont("Roboto-Regular", font_size); break;
+                    case 0: font_name = "Helvetica"; break;
+                    case 1: font_name = "OCR-A"; break;
+                    case 2: font_name = "OCR-B"; break;
+                    case 3: font_name = "Roboto-Regular"; break;
                     default: {
                         notifyf("Unknown font type %d\n", font_type);
                         font_found = false;
@@ -203,44 +204,7 @@ struct ZPL_element {
                     }
                 }
                 if (!font_found) return;
-                // Font* font_ptr = fontx.getFont("OCR-A", font_size);
-                // Font* font_ptr = fontx.getFont("Roboto-Regular", font_size);
-                // Font* font_ptr = fontx.getFont("Helvetica", font_size);
-                // if (font_ptr == nullptr) return; // Font not found
-                // Font& font = font_ptr[0];
-                // DrawTextEx(font, text, (Vector2) { ix, iy }, font_size, 0, BLACK);
-                // ImageDrawTextEx(image, font, text, (Vector2) { ix, iy }, font_size, 0, BLACK);
-                int offset = font_size * 2 / 3;
-                int x_pos = ix;
-                int length = text.length();
-                for (int i = 0; i < length; i++) {
-                    char c = text[i];
-                    FT_GlyphSlot* glyph = FontLib.getChar(c);
-                    if (glyph) {
-                        FT_GlyphSlot& g = glyph[0];
-                        FT_Bitmap& bitmap = g->bitmap;
-                        int width = bitmap.width;
-                        int height = bitmap.rows;
-                        int offsetX = x_pos + g->bitmap_left;
-                        int offsetY = offset - g->bitmap_top;
-                        for (int iy = 0; iy < height; iy++) {
-                            for (int ix = 0; ix < width; ix++) {
-                                uint8_t greyscale = bitmap.buffer[((int) iy) * width + ((int) ix)]; // Single 8 bit value
-                                // if (greyscale > 0) {
-                                    // greyscale = inverted ? greyscale : (255 - greyscale);
-                                    // Color color = { greyscale , greyscale, greyscale,  0xFF };
-                                    // image->drawPixel(offsetX + ix, y + iy + offsetY, color, inverted);
-                                // }
-                                if (greyscale > 0) {
-                                    image->drawPixel(offsetX + ix, y + iy + offsetY, stroke, inverted);
-                                }
-                            }
-                        }
-                        x_pos += g->advance.x >> 6;
-                    } else {
-                        notifyf("Glyph '%c' not found\n", c);
-                    }
-                }
+                image->drawText(ix, iy, font_size, text.c_str(), font_name.c_str(), stroke, inverted);
             } break;
 
             case GF: {

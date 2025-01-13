@@ -17,6 +17,7 @@
 #include "colorx.h"
 #include "lodepng.h"
 #include "fpng.h"
+#include "fontx.h"
 
 enum PNG_ENCODER {
     PE_UNKNOWN,
@@ -135,6 +136,54 @@ public:
         if (x < 0 || y < 0 || x >= width || y >= height) return 127;
         size_t idx = 4 * (y * width + x);
         return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+    }
+
+    void drawText(int x, int y, int font_size, const char* text, const char* font, Color color, bool inverted = false) {
+        if (font_size <= 0) return;
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+
+        int offset = font_size * 2 / 3;
+        int x_pos = x;
+        int length = strlen(text);
+
+        int error = FontLib.setFont(font, font_size);
+        if (error) {
+            notifyf("Failed to set font %s at size %d\n", font, font_size);
+            return;
+        }
+
+        for (int i = 0; i < length; i++) {
+            char c = text[i];
+            FT_GlyphSlot* glyph = FontLib.getChar(c, font, font_size);
+            if (glyph) {
+                FT_GlyphSlot& g = glyph[0];
+                FT_Bitmap& bitmap = g->bitmap;
+                int iw = bitmap.width;
+                int ih = bitmap.rows;
+                int offsetX = x_pos + g->bitmap_left;
+                int offsetY = offset - g->bitmap_top;
+                for (int iy = 0; iy < ih; iy++) {
+                    int y_px = y + iy + offsetY;
+                    if (y_px < 0 || y_px >= height) continue;
+                    for (int ix = 0; ix < iw; ix++) {
+                        int x_px = offsetX + ix;
+                        if (x_px < 0 || x_px >= width) continue;
+                        uint8_t greyscale = bitmap.buffer[((int) iy) * iw + ((int) ix)]; // Single 8 bit value
+                        // if (greyscale > 0) {
+                            // greyscale = inverted ? greyscale : (255 - greyscale);
+                            // Color color = { greyscale , greyscale, greyscale,  0xFF };
+                            // image->drawPixel(x_px, y_px, color, inverted);
+                        // }
+                        if (greyscale > 0) {
+                            drawPixel(x_px, y_px, color, inverted);
+                        }
+                    }
+                }
+                x_pos += g->advance.x >> 6;
+            } else {
+                notifyf("Glyph '%c' not found\n", c);
+            }
+        }
     }
 
     void fillPolygon(std::vector<Vector2> points, Color color, bool inverted = false) {
