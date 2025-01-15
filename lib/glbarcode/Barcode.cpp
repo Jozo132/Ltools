@@ -35,6 +35,7 @@ namespace glbarcode
 
 		bool                   mShowTextFlag;  /**< Display text flag */
 		bool                   mChecksumFlag;  /**< Add checksum flag */
+		char				   mMode;          /**< Barcode mode */
 
 		double                 mW;             /**< Width of barcode (points) */
 		double                 mH;             /**< Height of barcode (points) */
@@ -53,6 +54,7 @@ namespace glbarcode
 
 		d->mShowTextFlag  = false;
 		d->mChecksumFlag  = false;
+		d->mMode          = 0;
 
 		d->mW             = 0;
 		d->mH             = 0;
@@ -81,10 +83,21 @@ namespace glbarcode
 		return d->mShowTextFlag;
 	}
 
+	char Barcode::mode( void ) const
+	{
+		return d->mMode;
+	}
+
 
 	Barcode& Barcode::setChecksum( bool value )
 	{
 		d->mChecksumFlag = value;
+		return *this;
+	}
+
+	Barcode& Barcode::setMode( char mode )
+	{
+		d->mMode = mode;
 		return *this;
 	}
 

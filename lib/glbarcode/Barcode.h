@@ -97,6 +97,29 @@ namespace glbarcode
 		Barcode& setChecksum( bool value );
 
 
+
+		/**
+		 * Set accessor for "mode" property.
+		 *
+		 * @param[in] mode Mode character
+		 *
+		 * @returns A reference to this Barcode object for property chaining
+		 *
+		 * @sa mode()
+		 */
+		Barcode& setMode( char mode );
+
+
+		/**
+		 * Get accessor for "mode" property.
+		 *
+		 * @returns Value of mode character
+		 *
+		 * @sa setMode()
+		 */
+		char mode( void ) const;
+
+
 		/**
 		 * Get accessor for "checksum" property.
 		 *

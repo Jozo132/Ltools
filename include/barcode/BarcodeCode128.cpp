@@ -337,9 +337,12 @@ namespace BC_C128 {
 		codes = (int*) malloc(len * sizeof(int));
 		s = bc->ascii;
 
+		bool automatic = false;
+
 		if (bc->encoding) {
 			if (!strcmp(bc->encoding, "code 128-A")) {
 				code = 'A';
+				automatic = true;
 			} else if (!strcmp(bc->encoding, "code 128-B")) {
 				code = 'B';
 			} else if (!strcmp(bc->encoding, "code 128-C")) {
@@ -354,14 +357,16 @@ namespace BC_C128 {
 		}
 
 		/* choose the starting code */
-		// if (s[2] == '\0' && isdigit(s[0]) && isdigit(s[1])) {
-		// 	code = 'C';
-		// } else if (isdigit(s[0]) && isdigit(s[1]) && isdigit(s[2]) && isdigit(s[3])) {
-		// 	code = 'C';
-		// } else {
-		// 	code = Barcode_a_or_b(s);
-		// 	if (!code) code = 'B'; /* default */
-		// }
+		if (automatic) {
+			if (s[2] == '\0' && isdigit(s[0]) && isdigit(s[1])) {
+				code = 'C';
+			} else if (isdigit(s[0]) && isdigit(s[1]) && isdigit(s[2]) && isdigit(s[3])) {
+				code = 'C';
+			} else {
+				code = Barcode_a_or_b(s);
+				if (!code) code = 'B'; /* default */
+			}
+		}
 		codes[i++] = START_A + code - 'A';
 
 		for (s = bc->ascii; *s; /* increments are in the loop */) {
@@ -385,18 +390,15 @@ namespace BC_C128 {
 
 				case 'B':
 				case 'A':
-					// NO
-					// for (j = 0; isdigit(s[j]); j++)
-					// 	;
-					// if (j >= 4) { /* if there are 4 or more digits, turn to C */
-					// 	if (j & 1) {
-					// 		/* odd number: encode one first */
-					// 		codes[i++] = *(s++) - ' ';
-					// 	}
-					// 	codes[i++] = CODE_C;
-					// 	code = 'C';
-					// } else 
-					if (code == 'A' && NEED_CODE_B(*s)) {
+					if (automatic) for (j = 0; isdigit(s[j]); j++);
+					if (automatic && j >= 4) { /* if there are 4 or more digits, turn to C */
+						if (j & 1) {
+							/* odd number: encode one first */
+							codes[i++] = *(s++) - ' ';
+						}
+						codes[i++] = CODE_C;
+						code = 'C';
+					} else if (code == 'A' && NEED_CODE_B(*s)) {
 						/* check whether we should use SHIFT or change code */
 						j = Barcode_a_or_b(s + 1);
 						if (j == 'B') {
@@ -657,7 +659,13 @@ namespace glbarcode {
 	/* Code128 data encoding, implements Barcode1dBase::encode() */
 	std::string BarcodeCode128::encode(const std::string& cookedData) {
 		std::string code;
-		std::string encoding = "code 128-B";
+		char selected_mode = mode();
+		// to uppercase
+		selected_mode = toupper(selected_mode);
+		if (selected_mode != 'A' && selected_mode != 'B' && selected_mode != 'C') {
+			selected_mode = 'B';
+		}
+		std::string encoding = "code 128-" + std::string(1, selected_mode);
 		BC_C128::bc.encoding = (char*) encoding.c_str();
 		BC_C128::bc.ascii = (char*) cookedData.c_str();
 		BC_C128::Barcode_128_encode(&BC_C128::bc);
@@ -717,7 +725,7 @@ namespace glbarcode {
 			double x = 0;
 			double y = 0;
 			std::string c;
-			
+
 			// "%f:%f:%c" -> x, y, c
 			while ((pos = text.find(delimiter)) != std::string::npos) {
 				token = text.substr(0, pos);
