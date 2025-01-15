@@ -14,6 +14,7 @@ int main(int arg_c, char** arg_v) {
     bool test_reuse = false;
     bool silent = false;
     bool loud = false;
+    bool debug = false;
     bool print_memory = false;
     bool streamBase64 = false;
     string target = "";
@@ -35,6 +36,10 @@ int main(int arg_c, char** arg_v) {
         }
         if (arg == "-b") {
             streamBase64 = true; // stream PNG data as base64
+            continue;
+        }
+        if (arg == "debug") {
+            debug = true; // enable debug output
             continue;
         }
         if (arg == "silent") {
@@ -82,6 +87,9 @@ int main(int arg_c, char** arg_v) {
             printf("  -f         Use fast PNG encoding (default is small PNG size)\n");
             printf("  -s         Use small PNG size (default is fast PNG encoding)\n");
             printf("  -b         Stream PNG data as base64\n");
+            printf("  -m         Print memory usage (for debugging)\n");
+            printf("  -t [num]   Run multiple times for testing\n");
+            printf("  debug      Enable debug output\n");
             printf("  silent     No stdout output\n");
             printf("  loud       Enable pop-up notifications\n");
         }
@@ -148,14 +156,12 @@ int main(int arg_c, char** arg_v) {
             if (!test_reuse && i > 0) break;
 
             timer.start("Total_2");
+            int debug_level = !print_memory && !silent ? 1 : 0;
+            if (debug) debug_level = 2;
+            int error = zpl2png(zpl_input, png_output, width, height, 0, png_mode, debug_level); // Faster but less compression
 
-            int error = zpl2png(zpl_input, png_output, width, height, 0, png_mode, !print_memory && !silent); // Faster but less compression
-
-            if (error) {
-                notifyf("Error converting ZPL to PNG: %d\n", error);
-                printf("ZPL data: %d bytes\n%s\n", zpl_input.size(), zpl_input.c_str());
-                return 2;
-            }
+            if (error) return 2;
+            
 
             // Save to a file with the same name as the ZPL file but with a PNG extension
             if (got_file && !streamBase64) {
