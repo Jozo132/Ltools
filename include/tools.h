@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include "base64.h"
 
-
+#include "string_view.h"
 
 #ifdef _WIN32
 #include <windows.h>

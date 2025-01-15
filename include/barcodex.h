@@ -65,8 +65,8 @@ void barcode_drawText(double x, double y, double size, const char* text) {
 // #ifdef DEBUG_DRAWING
 //     printf("Drawing text at %f, %f with size %f and text %s\n", ix, iy, is, text);
 // #endif
-    rst.image->drawText(ix, iy, is, text, "OCR-B", BLACK, rst.inverted);
-    // rst.image->drawText(ix, iy, is, text, "Helvetica", BLACK, rst.inverted);
+    // rst.image->drawText(ix, iy, is, text, "OCR-B", BLACK, rst.inverted);
+    rst.image->drawText(ix, iy, is, text, "Helvetica", BLACK, rst.inverted);
 }
 
 void barcode_drawRing(double x, double y, double r, double w) {
@@ -143,7 +143,7 @@ void ImageDrawBarcode_Code39(Image* image, const char* text, int x, int y, int h
     delete bc;
 }
 
-void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int height, int scale, bool show_text, bool inverted) {
+void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int height, int scale, bool show_text, char mode, bool inverted) {
 #ifdef DEBUG_DRAWING
     printf("Drawing barcode Code128 at %d, %d with message %s\n", x, y, text);
     printf("  Height: %d, Scale: %d, Show Text: %d\n", height, scale, show_text);
@@ -163,7 +163,7 @@ void ImageDrawBarcode_Code128(Image* image, const char* text, int x, int y, int 
         return;
     }
     // Set barcode options
-    bc->setShowText(show_text).build(text, 0, height);
+    bc->setShowText(show_text).setMode(mode).build(text, 0, height);
 
     float scale_x = ((float) scale) * 1.0f;
     float scale_y = 1; //((float) height) * 0.05f;
