@@ -4,17 +4,14 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/MinGW/include",
-                "C:/MinGW/lib/gcc/mingw32/6.3.0/include/c++",
-                "C:/win-build/include",
-                "C:/win-build/include/freetype2"
+                "C:/win-build/include/**"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
             ],
-            "compilerPath": "C:/MinGW/bin/g++.exe",
+            "compilerPath": "C:/win-build/bin/g++.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64"
