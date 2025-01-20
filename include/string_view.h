@@ -100,6 +100,7 @@ public:
         len = std::min(len, length_ - pos);
         return StringView(str_ + offset_ + pos, len);
     }
+    StringView substring(size_t pos, size_t len) const { return substr(pos, len); }
 
     // Shift characters by a given amount
     StringView shift(size_t amount) {

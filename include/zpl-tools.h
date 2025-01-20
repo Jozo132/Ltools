@@ -137,7 +137,8 @@ struct ZPL_element {
     char mode = 'N';
     char interpretation = 'N';
     char interpretation_above = 'N';
-    uint8_t* halfbytes = nullptr;
+    std::vector<uint8_t> bitmap;
+    bool use_halfbyte = false;
     void print() {
         if (type == UNKNOWN) {
             printf("        Unknown: %.*s\n", str.length(), str.c_str());
@@ -242,15 +243,33 @@ struct ZPL_element {
                 // Draw custom graphic field
                 // A halfbyte represents 4x1 pixels in the image
                 float scaling_factor = 1;
-                for (float iy = 0; iy < height; iy++) {
-                    for (float ix = 0; ix < width; ix++) {
-                        int halfbyte = halfbytes[((int) iy) * width + ((int) ix)];
-                        for (int i = 0; i < 4; i++) {
-                            int bit = (halfbyte >> (3 - i)) & 1;
-                            // if (bit) DrawPixel(x + ix * 4.0 * scaling_factor + i, y + iy * scaling_factor, BLACK);
-                            if (bit) image->drawPixel(x + offset_x + ix * 4.0 * scaling_factor + i, y + iy * scaling_factor, BLACK, inverted);
+                if (use_halfbyte) {
+                    for (float iy = 0; iy < height; iy++) {
+                        for (float ix = 0; ix < width; ix++) {
+                            int halfbyte = bitmap[((int) iy) * width + ((int) ix)];
+                            for (int i = 0; i < 4; i++) {
+                                int bit = (halfbyte >> (3 - i)) & 1;
+                                // if (bit) DrawPixel(x + ix * 4.0 * scaling_factor + i, y + iy * scaling_factor, BLACK);
+                                int _x = x + offset_x + ix * 4.0 * scaling_factor + i;
+                                int _y = y + offset_y + iy * scaling_factor;
+                                if (bit) image->drawPixel(_x, _y, BLACK, inverted);
+                            }
                         }
                     }
+                } else { // Use full 8 bit bytes
+                    for (float iy = 0; iy < height; iy++) {
+                        for (float ix = 0; ix < width; ix++) {
+                            int byte = bitmap[((int) iy) * width + ((int) ix)];
+                            for (int i = 0; i < 8; i++) {
+                                int bit = (byte >> (7 - i)) & 1;
+                                // if (bit) DrawPixel(x + ix * 8.0 * scaling_factor + i, y + iy * scaling_factor, BLACK);
+                                int _x = x + offset_x + ix * 8.0 * scaling_factor + i;
+                                int _y = y + offset_y + iy * scaling_factor;
+                                if (bit) image->drawPixel(_x, _y, BLACK, inverted);
+                            }
+                        }
+                    }
+
                 }
             } break;
 
@@ -335,6 +354,7 @@ struct ZPL_state {
 struct ZPL_parsing_error {
     int parsed;
     int error;
+    int warning;
     char message[256];
     int line;
     int column;
@@ -357,39 +377,38 @@ struct ZPL_RLE_parser {
     StringView str;
     int idx = 0;
     int pixel_count = 0;
-    uint8_t* half_byte_pixels = nullptr;
     int width = 0; // 1/4 in size of the actual pixed count width
     int height = 0; // 1/1 in size of the actual pixed count height
     int error = 0;
     const char* message = nullptr;
-    void _push(uint8_t halfbyte, int repeat = 1) {
+    void _push(std::vector<uint8_t>& bitmap, uint8_t halfbyte, int repeat = 1) {
         if ((idx + repeat) > pixel_count) {
             // error = 1;
             // message = "Too many pixels";
             return;
         }
         for (int i = 0; i < repeat; i++) {
-            half_byte_pixels[idx++] = halfbyte;
+            bitmap[idx++] = halfbyte;
         }
     }
-    void _copy_previous_row() { // Symbol ':'
+    void _copy_previous_row(std::vector<uint8_t>& bitmap) { // Symbol ':'
         // Override current row with previous row and set index to the start of the next row
         int row = idx / width;
         int previous = row > 0 ? (row - 1) * width : 0;
         int start = row * width;
         if (row > 0) {
             for (int i = 0; i < width; i++) {
-                half_byte_pixels[start + i] = half_byte_pixels[previous + i];
+                bitmap[start + i] = bitmap[previous + i];
             }
         }
         idx = start + width;
     }
-    void _fill_remaining_row() { // Symbol '!'
+    void _fill_remaining_row(std::vector<uint8_t>& bitmap) { // Symbol '!'
         // Fill the rest of the row with the 0xF half bytes until the end of the row
         int row = idx / width;
         int start = row * width;
         for (int i = idx; i < start + width; i++) {
-            half_byte_pixels[i] = 0xF;
+            bitmap[i] = 0xF;
         }
         idx = start + width;
     }
@@ -406,20 +425,20 @@ struct ZPL_RLE_parser {
         if (c >= 'G') return 1;
         return 0;
     }
-    bool parse(int byte_count, int column_count, StringView& str, char caret) { // A,4096,4096,32,,:::::::::::::hY03........
-        if (half_byte_pixels) free(half_byte_pixels);
+    bool parse(int byte_count, int column_count, StringView& str, std::vector<uint8_t>& bitmap, char caret) { // A,4096,4096,32,,:::::::::::::hY03........
         this->str = str;
         this->idx = 0;
         this->error = 0;
         this->message = nullptr;
+        bitmap.clear();
 
         width = column_count * 2;
         height = (byte_count * 2) / width;
         pixel_count = width * height;
 
-        half_byte_pixels = new uint8_t[pixel_count];
+        bitmap.resize(pixel_count);
         for (int i = 0; i < pixel_count; i++) {
-            half_byte_pixels[i] = 0;
+            bitmap[i] = 0;
         }
         int len = str.length();
         if (len < 2) {
@@ -436,16 +455,16 @@ struct ZPL_RLE_parser {
                 continue;
             }
             if (c == '!') {
-                _fill_remaining_row();
+                _fill_remaining_row(bitmap);
                 continue;
             }
             if (c == ':') {
-                _copy_previous_row();
+                _copy_previous_row(bitmap);
                 continue;
             }
             int value = hexCharToNum(c);
             if (value >= 0) {
-                _push(value, 1);
+                _push(bitmap, value, 1);
                 continue;
             }
             int repeat = getRepeat(c);
@@ -458,7 +477,7 @@ struct ZPL_RLE_parser {
             if (next == caret) break;
             value = hexCharToNum(next);
             if (value != -1) {
-                _push(value, repeat);
+                _push(bitmap, value, repeat);
             } else {
                 error = 1;
                 message = "Invalid RLE character";
@@ -468,6 +487,40 @@ struct ZPL_RLE_parser {
         return true;
     }
 } rle_parser;
+
+struct ZPL_Z64_parser {
+    StringView str;
+    int width = 0; // 1/8 in size of the actual pixed count width
+    int height = 0; // 1/1 in size of the actual pixed count height
+    std::vector<uint8_t> inflated;
+    int error = 0;
+    int idx = 0;
+    const char* message = nullptr;
+    // Steps:
+    // 1. Read the Z64 string
+    // 2. Decode Base64 to binary
+    // 3. Inflate the binary data using zlib
+
+    bool parse(int byte_count, int column_count, StringView& str, std::vector<uint8_t>& bitmap, char caret) {
+        width = column_count;
+        height = (byte_count) / width;
+        error = 0;
+        idx = 0;
+        message = nullptr;
+        this->str = str;
+        bitmap.clear();
+        // Decode Base64
+        std::string binary = b64decode(str.c_str(), str.length());
+        int result = zlibDecompress(binary, bitmap, width * height);
+        if (result != Z_OK) {
+            error = 1;
+            message = "Failed to decompress Z64 data";
+            return false;
+        }
+        return true;
+    }
+} z64_parser;
+
 
 class ZPL_label {
 public:
@@ -597,11 +650,11 @@ ZPL_parsing_error parseNumber(char caret, char delimiter, StringView& str, int& 
     int n = 0;
     int count = 0;
     int skipDelimiter = 0;
-    if (str.length() == 0) return (ZPL_parsing_error) { 0, 1, "Empty number", 0, 0 };
+    if (str.length() == 0) return (ZPL_parsing_error) { 0, 1, 0, "Empty number", 0, 0 };
     if (str[0] == delimiter || str[0] == caret) {
-        if (required) return (ZPL_parsing_error) { 0, 1, "Missing required number", 0, 0 };
+        if (required) return (ZPL_parsing_error) { 0, 1, 0, "Missing required number", 0, 0 };
         if (str[0] == delimiter) skipDelimiter = 1;
-        return (ZPL_parsing_error) { skipDelimiter, 0, "", 0, 0 };
+        return (ZPL_parsing_error) { skipDelimiter, 0, 0, "", 0, 0 };
     }
     for (int i = 0; i < str.length(); i++) {
         if (str[i] >= '0' && str[i] <= '9') {
@@ -617,26 +670,26 @@ ZPL_parsing_error parseNumber(char caret, char delimiter, StringView& str, int& 
             if (str[i] == '\r') break;
             if (str[i] == '\n') break;
             if (str[i] == ' ') continue;
-            // return (ZPL_parsing_error) { i, 1, "Invalid number", 0, i };
+            // return (ZPL_parsing_error) { i, 1, 0, "Invalid number", 0, i };
             break;
         }
     }
     if (count > 0) number = n; // Only update if we found a number
     else {
-        if (required) return (ZPL_parsing_error) { 0, 1, "Missing required number", 0, 0 };
+        if (required) return (ZPL_parsing_error) { 0, 1, 0, "Missing required number", 0, 0 };
     }
-    return (ZPL_parsing_error) { count + skipDelimiter, 0, "", 0, 0 };
+    return (ZPL_parsing_error) { count + skipDelimiter, 0, 0, "", 0, 0 };
 }
 
 
 ZPL_parsing_error parseString(char caret, char delimiter, StringView& str, char* text, bool required = false, bool ignoreDelimiter = false) {
     int count = 0;
     int skipDelimiter = 0;
-    if (str.length() == 0) return (ZPL_parsing_error) { 0, 1, "Empty string", 0, 0 };
+    if (str.length() == 0) return (ZPL_parsing_error) { 0, 1, 0, "Empty string", 0, 0 };
     if (str[0] == delimiter || str[0] == caret) {
-        if (required) return (ZPL_parsing_error) { 0, 1, "Missing required string", 0, 0 };
+        if (required) return (ZPL_parsing_error) { 0, 1, 0, "Missing required string", 0, 0 };
         if (str[0] == delimiter) skipDelimiter = 1;
-        return (ZPL_parsing_error) { skipDelimiter, 0, "", 0, 0 };
+        return (ZPL_parsing_error) { skipDelimiter, 0, 0, "", 0, 0 };
     }
     for (int i = 0; i < str.length(); i++) {
         if (str[i] == delimiter && !ignoreDelimiter) {
@@ -651,22 +704,22 @@ ZPL_parsing_error parseString(char caret, char delimiter, StringView& str, char*
     }
     text[count] = '\0';
     if (count == 0) {
-        if (required) return (ZPL_parsing_error) { 0, 1, "Missing required string", 0, 0 };
+        if (required) return (ZPL_parsing_error) { 0, 1, 0, "Missing required string", 0, 0 };
     }
-    return (ZPL_parsing_error) { count + skipDelimiter, 0, "", 0, 0 };
+    return (ZPL_parsing_error) { count + skipDelimiter, 0, 0, "", 0, 0 };
 }
 
 ZPL_parsing_error parseChar(char caret, char delimiter, StringView& str, char& character, bool required = false) {
-    if (str.length() == 0) return (ZPL_parsing_error) { 0, 1, "Empty character", 0, 0 };
+    if (str.length() == 0) return (ZPL_parsing_error) { 0, 1, 0, "Empty character", 0, 0 };
     int skipDelimiter = 0;
     if (str[0] == delimiter || str[0] == caret) {
-        if (required) return (ZPL_parsing_error) { 0, 1, "Missing required character", 0, 0 };
+        if (required) return (ZPL_parsing_error) { 0, 1, 0, "Missing required character", 0, 0 };
         if (str[0] == delimiter) skipDelimiter = 1;
-        return (ZPL_parsing_error) { skipDelimiter, 0, "", 0, 0 };
+        return (ZPL_parsing_error) { skipDelimiter, 0, 0, "", 0, 0 };
     }
     character = str[0];
     if (str[1] == delimiter) skipDelimiter = 1;
-    return (ZPL_parsing_error) { 1 + skipDelimiter, 0, "", 0, 0 };
+    return (ZPL_parsing_error) { 1 + skipDelimiter, 0, 0, "", 0, 0 };
 }
 
 char* substring(const char* str, int start, int end) {
@@ -740,14 +793,14 @@ std::string* lineAt(std::string* str, int index, int* offset = nullptr, int* row
 
 
 ZPL_parsing_error skipDelimiter(char delimiter, const char* str, bool required = false) {
-    if (str[0] == '\0') return (ZPL_parsing_error) { 0, 1, "End of string", 0, 0 };
-    if (str[0] == delimiter) return (ZPL_parsing_error) { 1, 0, "", 0, 0 };
-    if (required) return (ZPL_parsing_error) { 0, 1, "Missing required delimiter", 0, 0 };
-    return (ZPL_parsing_error) { 0, 0, "", 0, 0 };
+    if (str[0] == '\0') return (ZPL_parsing_error) { 0, 1, 0, "End of string", 0, 0 };
+    if (str[0] == delimiter) return (ZPL_parsing_error) { 1, 0, 0, "", 0, 0 };
+    if (required) return (ZPL_parsing_error) { 0, 1, 0, "Missing required delimiter", 0, 0 };
+    return (ZPL_parsing_error) { 0, 0, 0, "", 0, 0 };
 }
 
 ZPL_label label;
-ZPL_label* parse_zpl(const std::string* zpl_text) {
+ZPL_label* parse_zpl(const std::string* zpl_text, int debug_level = 1) {
     label.clear();
     auto& idx = label.idx;
     auto& state = label.state;
@@ -787,15 +840,11 @@ ZPL_label* parse_zpl(const std::string* zpl_text) {
         cmd = decodeCommand(c, caret);
         if (cmd == UNKNOWN) {
             cmd_str.subtract(c); // Get the command string
-            sprintf(err.message, "Unknown command: %s", cmd_str.c_str());
-            err.error = 1;
-            err.parsed = 2;
-        } else {
-            err.message[0] = '\0';
-            err.error = 0;
-            err.parsed = 2;
+            if (debug_level > 0) {
+                printf("Unknown command: ^%s\n", cmd_str.c_str());
+            }
+            continue;
         }
-        ZPL_THROW(err.error, err);
 
         switch (cmd) {
             case XA: {
@@ -1057,22 +1106,45 @@ ZPL_label* parse_zpl(const std::string* zpl_text) {
                 ZPL_PARSE_NUMBER(column_count, Z_REQUIRED);
                 int num_of_characters = c.indexOf('^');
                 if (num_of_characters < 0) num_of_characters = c.length();
-                StringView rle_text = c.shift(num_of_characters);
-                rle_parser.parse(byte_count, column_count, rle_text, caret);
-                if (rle_parser.error) {
-                    label.error = 1;
-                    label.message = rle_parser.message;
-                    label.idx = idx + rle_parser.idx;
-                    return &label;
-                }
+                StringView graphic_data = c.shift(num_of_characters);
                 ZPL_GET_ELEMENT();
+                bool is_z64 = graphic_data.startsWith(":Z64:");
+
+                if (is_z64) {
+                    element->use_halfbyte = false;
+                    graphic_data.shift(5);
+                    int semicolon_index = graphic_data.indexOf(':');
+                    if (semicolon_index < 0) {
+                        label.error = 1;
+                        label.message = "Invalid Z64 string";
+                        return &label;
+                    }
+                    auto z64_data = graphic_data.substring(0, semicolon_index);
+                    z64_parser.parse(byte_count, column_count, z64_data, element->bitmap, caret);
+                    if (z64_parser.error) {
+                        label.error = 1;
+                        label.message = z64_parser.message;
+                        label.idx = idx + z64_parser.idx;
+                        return &label;
+                    }
+                    element->width = z64_parser.width;
+                    element->height = z64_parser.height;
+                } else {
+                    element->use_halfbyte = true;
+                    rle_parser.parse(byte_count, column_count, graphic_data, element->bitmap, caret);
+                    if (rle_parser.error) {
+                        label.error = 1;
+                        label.message = rle_parser.message;
+                        label.idx = idx + rle_parser.idx;
+                        return &label;
+                    }
+                    element->width = rle_parser.width;
+                    element->height = rle_parser.height;
+                }
                 element->str = cmd_str.subtract(c);
                 element->type = cmd;
                 element->x = x;
                 element->y = y;
-                element->width = rle_parser.width;
-                element->height = rle_parser.height;
-                element->halfbytes = rle_parser.half_byte_pixels;
             } break;
 
             default: {
@@ -1100,7 +1172,7 @@ int zpl2png(std::string zpl_text, std::vector<uint8_t>& png_data, int width, int
     }
     // if (debug_level > 0) timer.start("zpl2png total");
     if (debug_level > 0) timer.start("Parse ZPL");
-    ZPL_label* label = parse_zpl(&zpl_text); // Decode ZPL
+    ZPL_label* label = parse_zpl(&zpl_text, debug_level); // Decode ZPL
     if (debug_level > 0) timer.log("Parse ZPL");
     if (!label) {
         notifyf("Error parsing ZPL\n");

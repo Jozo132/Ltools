@@ -14,7 +14,7 @@
 #include <chrono>
 #include <algorithm>
 #include <unistd.h>
-#include "base64.h"
+#include "encoding.h"
 
 #include "string_view.h"
 

@@ -53,6 +53,11 @@
         "condition_variable": "cpp",
         "mutex": "cpp",
         "thread": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "iomanip": "cpp",
+        "bitset": "cpp",
+        "optional": "cpp",
+        "regex": "cpp",
+        "set": "cpp"
     }
 }

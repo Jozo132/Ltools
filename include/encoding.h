@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <zlib.h>
 
 static const char* B64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -82,4 +83,53 @@ std::string b64encode(const std::string& str)
 std::string b64decode(const std::string& str64)
 {
     return b64decode(str64.c_str(), str64.size());
+}
+
+
+
+
+int zlibDecompress(const std::string& input, std::vector<uint8_t>& decompressedBuffer, uLongf decompressedSize = 0) {
+    // Estimate decompressed size and start with a buffer
+    if (decompressedSize == 0) decompressedSize = input.length() * 4; // Initial guess
+
+    // Decompress the buffer
+    decompressedBuffer.resize(decompressedSize);
+
+    int result = uncompress(decompressedBuffer.data(), &decompressedSize, (const Bytef*) input.c_str(), input.length());
+    if (result == Z_BUF_ERROR) {
+        // Retry with a larger buffer if it's too small
+        decompressedSize *= 2;
+        decompressedBuffer.resize(decompressedSize);
+        result = uncompress(decompressedBuffer.data(), &decompressedSize, (const Bytef*) input.c_str(), input.length());
+    }
+    if (result != Z_OK) {
+        // Error
+        return result;
+    }
+
+    decompressedBuffer.resize(decompressedSize); // Resize to the actual decompressed size
+    return Z_OK;
+}
+
+
+int zlibCompress(const std::vector<uint8_t>& input, std::string& compressedBuffer, int level = Z_BEST_COMPRESSION) {
+    // Estimate compressed size and start with a buffer
+    uLongf compressedSize = compressBound(input.size());
+    compressedBuffer.resize(compressedSize);
+
+    // Compress the buffer
+    int result = compress((Bytef*) compressedBuffer.data(), &compressedSize, (const Bytef*) input.data(), input.size());
+    if (result == Z_BUF_ERROR) {
+        // Retry with a larger buffer if it's too small
+        compressedSize *= 2;
+        compressedBuffer.resize(compressedSize);
+        result = compress((Bytef*) compressedBuffer.data(), &compressedSize, (const Bytef*) input.data(), input.size());
+    }
+    if (result != Z_OK) {
+        // Error
+        return result;
+    }
+
+    compressedBuffer.resize(compressedSize); // Resize to the actual compressed size
+    return Z_OK;
 }
