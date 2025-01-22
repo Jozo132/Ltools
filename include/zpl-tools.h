@@ -970,8 +970,11 @@ ZPL_label* parse_zpl(const std::string* zpl_text, int debug_level = 1) {
                 // ^GB1200,792,3,B,3  (width, height, inset=3, color=W, radius=3)
                 // ^GB1200,792,3,,3  (width, height, inset=3, default=B, radius=3)
                 // ^GB1200,792,3  (width, height, inset=3, default=B, default=0)
-                ZPL_PARSE_NUMBER(width, Z_REQUIRED);
-                ZPL_PARSE_NUMBER(height, Z_REQUIRED);
+                width = 1;
+                height = 1;
+                inset = 1;
+                ZPL_PARSE_NUMBER(width, Z_OPTIONAL);
+                ZPL_PARSE_NUMBER(height, Z_OPTIONAL);
                 ZPL_PARSE_NUMBER(inset, Z_OPTIONAL);
                 ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITHOUT_DELIMITER);
                 if (temp[0] == 'B' || temp[0] == 'W') color = temp[0];
@@ -981,9 +984,9 @@ ZPL_label* parse_zpl(const std::string* zpl_text, int debug_level = 1) {
                 element->type = cmd;
                 element->x = x;
                 element->y = y;
-                element->width = width;
-                element->height = height;
-                element->inset = inset;
+                element->width = width < 1 ? 1 : width;
+                element->height = height < 1 ? 1 : height;
+                element->inset = inset < 1 ? 1 : inset;
                 element->radius = radius;
                 element->color = color;
                 element->inverted = inverted;
