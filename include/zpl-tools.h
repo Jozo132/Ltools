@@ -65,6 +65,9 @@ enum ZPL_CMD {
     FO, // Field Origin
     FR, // Invert
     GB, // Graphic Box
+    GC, // Graphic Circle
+    GD, // Graphic Diagonal Line
+    GE, // Graphic Ellipse
     FD, // Field Data
     FS, // End Field
     BY, // Barcode Field Default
@@ -90,6 +93,9 @@ enum ZPL_CMD {
     "FO", \
     "FR", \
     "GB", \
+    "GC", \
+    "GD", \
+    "GE", \
     "FD", \
     "FS", \
     "BY", \
@@ -118,6 +124,8 @@ struct ZPL_element {
     int width = 0;
     int height = 0;
     int radius = 0; // 0 - 8 (0 = square corners, 8 = round corners)
+    int diameter = 0; // Used for circles
+    char direction = 'R'; // Used for diagonal lines (left and right)
     int inset = 0;
     char color = 'B'; // B = Black, W = White
     StringView text;
@@ -159,6 +167,9 @@ struct ZPL_element {
             case FX: printf("        FX  Comment: %s\n", text.c_str()); break;
             case FD: printf("        FD  Text %d,%d  %d,%d  %c: %s\n", font_type, font_size, x, y, color ? color : 'B', text.c_str()); break;
             case GB: printf("        GB  Rect: %d, %d, %d, %d, %d, %c, %d\n", x, y, width, height, inset, color, radius); break;
+            case GC: printf("        GC  Circle: %d, %d, %d, %d, %c\n", x, y, diameter, inset, color); break;
+            case GD: printf("        GD  Diagonal Line: %d, %d, %d, %d, %c, %c\n", x, y, width, height, direction, color); break;
+            case GE: printf("        GE  Ellipse: %d, %d, %d, %d, %c\n", x, y, width, height, color); break;
             case FR: printf("        FR  Invert\n"); break;
             case FS: printf("        FS  End Field\n"); break;
             case BY: printf("        BY  Barcode Field Default %d, %d, %d, %d, %c, %c, %c, %c\n", x, y, width, height, orientation, check, interpretation, interpretation_above); break;
@@ -217,6 +228,38 @@ struct ZPL_element {
                     image->drawRoundedRectangle(ix, iy, iw, ih, roundness, inset, stroke, BLANK, inverted);
                 }
             } break;
+
+            case GC: {
+                const Color stroke = color == 'W' ? WHITE : BLACK;
+                float ir = diameter / 2;
+                float ix = x + offset_x + ir;
+                float iy = y + offset_y + ir;
+                float full = inset >= ir;
+                if (full) {
+                    image->drawCircle(ix, iy, ir, 0, BLANK, stroke, inverted);
+                } else {
+                    image->drawCircle(ix, iy, ir, inset, stroke, BLANK, inverted);
+                }
+            } break;
+
+            case GD: {
+                const Color stroke = color == 'W' ? WHITE : BLACK;
+                float ix = x + offset_x;
+                float iy = y + offset_y;
+                float iw = width;
+                float ih = height;
+                image->drawDiagonalZPL(ix, iy, iw, ih, direction, inset, stroke, inverted);
+            } break;
+
+            case GE: {
+                const Color stroke = color == 'W' ? WHITE : BLACK;
+                float ix = x + offset_x + width / 2;
+                float iy = y + offset_y + height / 2;
+                float iw = width;
+                float ih = height;
+                image->drawEllipse(ix, iy, iw, ih, inset, stroke, BLANK, inverted);
+            } break;
+
 
             case FD: {
                 float ix = x + offset_x;
@@ -636,6 +679,9 @@ ZPL_CMD decodeCommand(StringView& str, char caret) {
     if (command.startsWith("FO")) return FO;
     if (command.startsWith("FR")) return FR;
     if (command.startsWith("GB")) return GB;
+    if (command.startsWith("GC")) return GC;
+    if (command.startsWith("GD")) return GD;
+    if (command.startsWith("GE")) return GE;
     if (command.startsWith("FD")) return FD;
     if (command.startsWith("FX")) return FX;
     if (command.startsWith("FS")) return FS;
@@ -989,6 +1035,67 @@ ZPL_label* parse_zpl(const std::string* zpl_text, int debug_level = 1) {
                 element->inset = inset < 1 ? 1 : inset;
                 element->radius = radius;
                 element->color = color;
+                element->inverted = inverted;
+                state.reset();
+            } break;
+
+            case GC: {
+                // ^GC100,50
+                // ^GC100,50,W
+                ZPL_GET_ELEMENT();
+                element->diameter = 3;
+                element->inset = 1;
+                element->color = 'B';
+                ZPL_PARSE_NUMBER(element->diameter, Z_OPTIONAL);
+                ZPL_PARSE_NUMBER(element->inset, Z_OPTIONAL);
+                ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITHOUT_DELIMITER);
+                if (temp[0] == 'B' || temp[0] == 'W') element->color = temp[0];
+                element->str = cmd_str.subtract(c);
+                element->type = cmd;
+                element->x = x;
+                element->y = y;
+                element->inverted = inverted;
+                state.reset();
+            } break;
+
+            case GD: {
+                // ^GD100,80,10,B,R
+                ZPL_GET_ELEMENT();
+                element->width = 3;
+                element->height = 3;
+                element->inset = 1;
+                element->color = 'B';
+                element->direction = 'R';
+                ZPL_PARSE_NUMBER(element->width, Z_OPTIONAL);
+                ZPL_PARSE_NUMBER(element->height, Z_OPTIONAL);
+                ZPL_PARSE_NUMBER(element->inset, Z_OPTIONAL);
+                ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITHOUT_DELIMITER);
+                if (temp[0] == 'B' || temp[0] == 'W') element->color = temp[0];
+                ZPL_PARSE_CHAR(element->direction, Z_OPTIONAL);
+                element->str = cmd_str.subtract(c);
+                element->type = cmd;
+                element->x = x;
+                element->y = y;
+                element->inverted = inverted;
+                state.reset();
+            } break;
+
+            case GE: {
+                // ^GE100,50,3,B
+                ZPL_GET_ELEMENT();
+                element->width = 3;
+                element->height = 3;
+                element->inset = 1;
+                element->color = 'B';
+                ZPL_PARSE_NUMBER(element->width, Z_OPTIONAL);
+                ZPL_PARSE_NUMBER(element->height, Z_OPTIONAL);
+                ZPL_PARSE_NUMBER(element->inset, Z_OPTIONAL);
+                ZPL_PARSE_STRING(temp, Z_OPTIONAL, WITHOUT_DELIMITER);
+                if (temp[0] == 'B' || temp[0] == 'W') element->color = temp[0];
+                element->str = cmd_str.subtract(c);
+                element->type = cmd;
+                element->x = x;
+                element->y = y;
                 element->inverted = inverted;
                 state.reset();
             } break;

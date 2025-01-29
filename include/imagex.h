@@ -254,6 +254,48 @@ public:
         }
     }
 
+    void drawDiagonalZPL(int x, int y, int w, int h, char direction, int stroke_width, Color stroke, bool inverted = false) {
+        // The diagonal line is either 'L' (left or '\' line) or 'R' (right or '/' line)
+        // The stroke is always drawn on the right side of the line
+        int hue = inverted ? stroke.getHue() : 255;
+        int inversion = 255 - hue;
+        double slope = (double) h / w;
+        if (direction == 'L') { // Left diagonal line ('\') drawn from top row to bottom row
+            for (int iy = y; iy < y + h; iy++) {
+                // get the x position of the diagonal for the current row
+                int ix = x + (int) ((double)(iy - y) / slope);
+                for (int i = 0; i < stroke_width; i++, ix++) {
+                    if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue; // Skip out of image bounds
+                    if (inverted) {
+                        invertPixel(ix, iy, inversion);
+                    } else {
+                        size_t idx = 4 * (iy * width + ix);
+                        data[idx] = stroke.r;
+                        data[idx + 1] = stroke.g;
+                        data[idx + 2] = stroke.b;
+                        data[idx + 3] = stroke.a;
+                    }
+                }
+            }
+        } else if (direction == 'R') { // Right diagonal line ('/') drawn from top row to bottom row
+            for (int iy = y; iy < y + h; iy++) {
+                // get the x position of the diagonal for the current row
+                int ix = x + w - (int) ((double)(iy - y) / slope);
+                for (int i = 0; i < stroke_width; i++, ix++) {
+                    if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue; // Skip out of image bounds
+                    if (inverted) {
+                        invertPixel(ix, iy, inversion);
+                    } else {
+                        size_t idx = 4 * (iy * width + ix);
+                        data[idx] = stroke.r;
+                        data[idx + 1] = stroke.g;
+                        data[idx + 2] = stroke.b;
+                        data[idx + 3] = stroke.a;
+                    }
+                }
+            }
+        }
+    }
 
     void drawRect(int x, int y, int w, int h, int stroke_width, Color stroke, Color fill, bool inverted = false) {
         int fill_hue = inverted ? fill.getHue() : 255;
@@ -366,11 +408,14 @@ public:
         int fill_inversion = 255 - fill_hue;
         int stroke_hue = inverted ? stroke.getHue() : 255;
         int stroke_inversion = 255 - stroke_hue;
+        int r2_outer = radius * radius;
+        int r2_inner = (radius - stroke_width) * (radius - stroke_width);
         if (!fill.isBlank()) {
             for (int iy = y - radius; iy < y + radius; iy++) {
                 for (int ix = x - radius; ix < x + radius; ix++) {
                     if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
-                    if ((ix - x) * (ix - x) + (iy - y) * (iy - y) < radius * radius) {
+                    int r2 = (ix - x) * (ix - x) + (iy - y) * (iy - y) - 1;
+                    if (r2_outer >= r2) {
                         if (inverted) {
                             invertPixel(ix, iy, fill_inversion);
                         } else {
@@ -388,7 +433,8 @@ public:
             for (int iy = y - radius; iy < y + radius; iy++) {
                 for (int ix = x - radius; ix < x + radius; ix++) {
                     if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
-                    if ((ix - x) * (ix - x) + (iy - y) * (iy - y) < radius * radius + stroke_width * stroke_width / 4) {
+                    int r2 = (ix - x) * (ix - x) + (iy - y) * (iy - y) - 1;
+                    if (r2_outer >= r2 && r2 >= r2_inner) {
                         if (inverted) {
                             invertPixel(ix, iy, stroke_inversion);
                         } else {
@@ -404,18 +450,57 @@ public:
         }
     }
 
+    void drawEllipse(int x, int y, int w, int h, int stroke_width, Color stroke, Color fill, bool inverted = false) {
+        int fill_hue = inverted ? fill.getHue() : 255;
+        int fill_inversion = 255 - fill_hue;
+        int stroke_hue = inverted ? stroke.getHue() : 255;
+        int stroke_inversion = 255 - stroke_hue;
+        int rw = w / 2;
+        int rh = h / 2;
+        int inner_rw = rw - stroke_width > 0 ? rw - stroke_width : 0;
+        int inner_rh = rh - stroke_width > 0 ? rh - stroke_width : 0;
+        int rw2 = rw * rw;
+        int rh2 = rh * rh;
+        int inner_rw2 = inner_rw * inner_rw;
+        int inner_rh2 = inner_rh * inner_rh;
+        bool fully_filled = stroke_width >= std::min(w, h);
+        for (int iy = y - rh; iy < y + rh; iy++) {
+            for (int ix = x - rw; ix < x + rw; ix++) {
+                if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
+                float outer_eq = ((ix - x) * (ix - x)) / (float) rw2 + ((iy - y) * (iy - y)) / (float) rh2;
+                float inner_eq = ((ix - x) * (ix - x)) / (float) inner_rw2 + ((iy - y) * (iy - y)) / (float) inner_rh2;
+                if (outer_eq <= 1) {
+                    if (inner_eq > 1 || fully_filled) {
+                        if (inverted) {
+                            invertPixel(ix, iy, fill_inversion);
+                        } else {
+                            size_t idx = 4 * (iy * width + ix);
+                            data[idx] = fill.r;
+                            data[idx + 1] = fill.g;
+                            data[idx + 2] = fill.b;
+                            data[idx + 3] = fill.a;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     void drawArc(Vector2 center, int radius, int startAngle, int endAngle, int stroke_width, Color stroke, Color fill, bool inverted = false) {
         int fill_hue = inverted ? fill.getHue() : 255;
         int fill_inversion = 255 - fill_hue;
         int stroke_hue = inverted ? stroke.getHue() : 255;
         int stroke_inversion = 255 - stroke_hue;
+        int r2_outer = radius * radius;
+        int r2_inner = (radius - stroke_width) * (radius - stroke_width);
         if (!fill.isBlank()) {
             for (int iy = center.y - radius; iy < center.y + radius; iy++) {
                 for (int ix = center.x - radius; ix < center.x + radius; ix++) {
                     if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
                     float angle = atan2f(iy - center.y, ix - center.x) * RAD2DEG;
                     if (angle < startAngle || angle > endAngle) continue;
-                    if ((ix - center.x) * (ix - center.x) + (iy - center.y) * (iy - center.y) < radius * radius) {
+                    int r2 = (ix - center.x) * (ix - center.x) + (iy - center.y) * (iy - center.y) - 1;
+                    if (r2_outer >= r2) {
                         if (inverted) {
                             invertPixel(ix, iy, fill_inversion);
                         } else {
@@ -435,7 +520,8 @@ public:
                     if (ix < 0 || iy < 0 || ix >= width || iy >= height) continue;
                     float angle = atan2f(iy - center.y, ix - center.x) * RAD2DEG;
                     if (angle < startAngle || angle > endAngle) continue;
-                    if ((ix - center.x) * (ix - center.x) + (iy - center.y) * (iy - center.y) < radius * radius + stroke_width * stroke_width / 4) {
+                    int r2 = (ix - center.x) * (ix - center.x) + (iy - center.y) * (iy - center.y) - 1;
+                    if (r2_outer >= r2 && r2 >= r2_inner) {
                         if (inverted) {
                             invertPixel(ix, iy, stroke_inversion);
                         } else {
